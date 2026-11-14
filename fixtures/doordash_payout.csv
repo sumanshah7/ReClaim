@@ -1,0 +1,15 @@
+Store,Order ID,Order Time,Pickup Time,Transaction Type,Description,Customer,Item,Amount,Payout Date
+Demo Bowl Shop (synthetic),DD-48200,2026-11-03 11:30,,Order,Order payout,,,21.50,2026-11-10
+Demo Bowl Shop (synthetic),DD-48215,2026-11-03 12:30,,Order,Order payout,,,34.00,2026-11-10
+Demo Bowl Shop (synthetic),DD-48222,2026-11-04 12:00,,Order,Order payout,,,18.25,2026-11-10
+Demo Bowl Shop (synthetic),DD-48258,2026-11-06 13:15,,Order,Order payout,,,27.80,2026-11-10
+Demo Bowl Shop (synthetic),DD-48275,2026-11-07 13:50,,Order,Order payout,,,15.40,2026-11-10
+Demo Bowl Shop (synthetic),DD-48211,2026-11-03 12:04,2026-11-03 12:22,Refund,Customer refund - Missing item,Alex R,Acai Bowl (Large),-42.00,2026-11-10
+Demo Bowl Shop (synthetic),DD-48230,2026-11-04 13:10,2026-11-04 13:29,Refund,Customer refund - Missing item,Maria S,Green Smoothie,-18.75,2026-11-10
+Demo Bowl Shop (synthetic),DD-48244,2026-11-05 18:31,2026-11-05 18:50,Refund,Customer refund - Missing item,Jordan K,Granola Add-on,-14.25,2026-11-10
+Demo Bowl Shop (synthetic),DD-48251,2026-11-06 19:02,2026-11-06 19:18,Refund,Customer refund - Wrong item,Jordan K,Chia Pudding,-21.00,2026-11-10
+Demo Bowl Shop (synthetic),DD-48267,2026-11-07 12:40,2026-11-07 12:55,Refund,Customer refund - Missing item,Jordan K,Peanut Butter Bowl,-16.50,2026-11-10
+Demo Bowl Shop (synthetic),DD-48280,2026-11-07 14:15,2026-11-07 14:31,Refund,Customer refund - Missing item,Priya N,Honey Drizzle,-9.50,2026-11-10
+Demo Bowl Shop (synthetic),DD-48290,2026-11-08 17:20,2026-11-08 17:39,Refund,Customer refund - Missing item,Sam T,Protein Bowl,-27.40,2026-11-10
+Demo Bowl Shop (synthetic),DD-48301,2026-11-08 20:05,2026-11-08 20:24,Refund,Customer refund - Other,Lee W,,-12.00,2026-11-10
+Demo Bowl Shop (synthetic),DD-47990,2026-10-17 12:00,2026-10-17 12:18,Refund,Customer refund - Missing item,Chris D,Acai Bowl (Large),-19.00,2026-10-20

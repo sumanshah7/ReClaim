@@ -1,0 +1,4 @@
+Order UUID,Order Time,Handoff Time,Event,Reason,Customer,Item,Total Adjustment,Payout Date
+UE-9a31,2026-11-05 12:15,2026-11-05 12:33,Refund - Order Issue,Missing item,Dana P,Honey Drizzle,-$24.30,2026-11-12
+UE-9a47,2026-11-06 18:05,2026-11-06 18:22,Refund - Order Issue,Wrong item,Eli M,Fruit Bowl,-$11.80,2026-11-12
+UE-9b02,2026-11-09 13:00,2026-11-09 13:16,Refund - Order Issue,Missing item,Noor A,Green Smoothie,-$33.00,2026-11-12
