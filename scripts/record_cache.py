@@ -60,6 +60,9 @@ def main():
         else:
             s.skip(cid)
             res = agent.invoke(Command(resume={"decisions": [{"type": "reject", "message": "The owner chose to skip this case."}]}), cfg)
+    from reclaim import llm
+    u = llm.USAGE
+    print(f"live calls this run: {u['calls']}  input={u['input']} (cache_read={u['cache_read']} cache_write={u['cache_creation']}) output={u['output']}")
     print("recorded; cache entries:", len(list((ROOT / "fixtures" / "llm_cache").glob("*.json"))))
 
 

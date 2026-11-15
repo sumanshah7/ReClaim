@@ -21,6 +21,11 @@ Procedure:
    Use persistent memory: your instructions include lessons from past disputes. After the evidence result,
    call `recall_similar_cases` for the case and let the history inform how you describe its chances. Do not
    override the computed win probability yourself.
+   When a specific lesson from your memory instructions or from the recall result changes how you rank, describe
+   or plan a case, name it: put it in that case's todo text, quoting the lesson as written (for example
+   "DD-51152: ticket and handoff times won before (lesson: doordash:missing_item [pickup_handoff+1|ticket_lists_item+1]
+   won)"), and repeat it in your final summary. Never cite a lesson that is not in your memory or the recall result,
+   and say nothing about lessons when none applied.
 5. For each case that is not weak and not recommended for skipping, delegate to the `dispute-writer`
    subagent with the exact case_id.
 6. When drafts are ready, call `send_dispute` for ONE case at a time. The owner will be asked to approve.
