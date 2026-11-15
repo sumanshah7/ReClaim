@@ -49,7 +49,9 @@ export const api = {
     fetch(`/api/runs/${id}/cases/${encodeURIComponent(caseId)}/decision`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision, body }) }).then(j<{ ok: boolean }>),
   outcome: (id: string, caseId: string, o: { result: "won" | "lost"; recovered_cents: number; lesson: string }) =>
     fetch(`/api/runs/${id}/cases/${encodeURIComponent(caseId)}/outcome`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(o) }).then(j<{ ok: boolean }>),
-  health: () => fetch("/api/health").then(j<{ ok: boolean; llm_mode: string; tracing?: { enabled: boolean; project: string; note: string | null } }>),
+  health: () => fetch("/api/health").then(j<{ ok: boolean; llm_mode: string; tracing?: { enabled: boolean; project: string; note: string | null; url?: string | null } }>),
+  files: (id: string) => fetch(`/api/runs/${id}/files`).then(j<{ path: string; bytes: number }[]>),
+  file: (id: string, path: string) => fetch(`/api/runs/${id}/files/${path.split("/").map(encodeURIComponent).join("/")}`).then(j<{ path: string; text: string }>),
   phone: () => fetch("/api/photon").then(j<PhoneState>),
   phoneSend: (sender: string, text: string) =>
     fetch("/api/photon/inbound", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sender, text }) }).then(j<{ reply: string | null }>),

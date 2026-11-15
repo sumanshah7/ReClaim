@@ -29,12 +29,24 @@ def ensure_consistent() -> str | None:
     return None
 
 
+_url_cache: dict[str, str | None] = {}
+
+
+def project_url(project: str) -> str | None:
+    """Link to the LangSmith project page, so the demo can open the trace in one click. Best effort, cached."""
+    if project not in _url_cache:
+        try:
+            from langsmith import Client
+            _url_cache[project] = Client(timeout_ms=(3000, 3000)).read_project(project_name=project).url
+        except Exception:
+            _url_cache[project] = None
+    return _url_cache[project]
+
+
 def status(note: str | None = None) -> dict:
-    return {
-        "enabled": _requested() and _has_key(),
-        "project": os.getenv("LANGSMITH_PROJECT") or os.getenv("LANGCHAIN_PROJECT") or "default",
-        "note": note,
-    }
+    enabled = _requested() and _has_key()
+    project = os.getenv("LANGSMITH_PROJECT") or os.getenv("LANGCHAIN_PROJECT") or "default"
+    return {"enabled": enabled, "project": project, "note": note, "url": project_url(project) if enabled else None}
 
 
 def run_config(run_id: str, llm_mode: str, source: str) -> dict:

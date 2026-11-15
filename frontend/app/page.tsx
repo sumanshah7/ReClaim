@@ -12,6 +12,7 @@ import { ErrorState } from "@/components/error-state";
 import { Hero } from "@/components/hero";
 import { MemoryStrip } from "@/components/memory-strip";
 import { PhoneSim } from "@/components/phone-sim";
+import { AgentFiles } from "@/components/agent-files";
 import { StartScreen } from "@/components/start-screen";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,7 +23,7 @@ export default function Page() {
   const [memKey, setMemKey] = useState(0);
   const pending = run.state?.pending_case ?? null;
   const [mode, setMode] = useState<string | null>(null);
-  const [trace, setTrace] = useState<{ enabled: boolean; project: string } | null>(null);
+  const [trace, setTrace] = useState<{ enabled: boolean; project: string; url?: string | null } | null>(null);
   useEffect(() => { api.health().then((h) => { setMode(h.llm_mode); setTrace(h.tracing ?? null); }).catch(() => setMode(null)); }, []);
 
   // Selection is derived: bring the owner to whatever newly needs a decision (and reset for a new run),
@@ -50,8 +51,9 @@ export default function Page() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {mode === "scripted" && <span title="A deterministic test model is driving the agent, not Claude." className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-mono text-[11px] uppercase tracking-wider text-caution hairline"><FlaskConical className="size-3.5" />Scripted dev model</span>}
-            {trace?.enabled && <span title={`Each run is traced to LangSmith project “${trace.project}”.`} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hairline"><Activity className="size-3.5" />Traced · {trace.project}</span>}
+            {trace?.enabled && (trace.url ? <a href={trace.url} target="_blank" rel="noreferrer" title="Open this project in LangSmith (opens a new tab)." className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hairline hover:text-foreground"><Activity className="size-3.5" />Traced · {trace.project} ↗</a> : <span title={`Each run is traced to LangSmith project “${trace.project}”.`} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hairline"><Activity className="size-3.5" />Traced · {trace.project}</span>)}
             <MemoryStrip refreshKey={memKey + (run.state?.status === "done" ? 1 : 0)} />
+            {run.runId && <AgentFiles runId={run.runId} refreshKey={run.events.length} />}
             <PhoneSim />
             {run.runId && <Button variant="ghost" size="sm" onClick={run.reset}><RotateCcw className="size-3.5" />New report</Button>}
           </div>

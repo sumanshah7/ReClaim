@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import threading
@@ -204,6 +205,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def start(req: StartRun):
         if req.upload_id:
             path = cfg.data / "uploads" / f"{Path(req.upload_id).name}.csv"
+            path = _matching_sample(path, cfg.fixtures) or path
         elif req.fixture:
             path = cfg.fixtures / Path(req.fixture).name   # name only: no path traversal
         else:
@@ -274,6 +276,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "ticket": {"order_id": t.order_id, "items": t.items,
                            "image_url": f"/api/tickets/{t.order_id}.png"} if t and t.image_path else None}
 
+    TEXT_EXT = {".md", ".json", ".jsonl", ".txt"}
+
+    def run_dir(run_id: str) -> Path:
+        get_run(run_id)
+        return (cfg.cases / Path(run_id).name).resolve()
+
+    @app.get("/api/runs/{run_id}/files")
+    def run_files(run_id: str):
+        """What the agent actually wrote: its plan, per-case evidence notes, drafts, decisions and packets."""
+        base = run_dir(run_id)
+        files = sorted(p for p in base.rglob("*") if p.is_file() and p.suffix in TEXT_EXT) if base.exists() else []
+        return [{"path": str(p.relative_to(base)), "bytes": p.stat().st_size} for p in files[:300]]
+
+    @app.get("/api/runs/{run_id}/files/{path:path}")
+    def run_file(run_id: str, path: str):
+        base = run_dir(run_id)
+        p = (base / path).resolve()
+        if base not in p.parents or p.suffix not in TEXT_EXT or not p.is_file():
+            raise HTTPException(404, "no such file")
+        return {"path": path, "text": p.read_text(errors="replace")[:60_000]}
+
     @app.get("/api/tickets/{name}")
     def ticket_image(name: str):
         p = cfg.fixtures / "tickets" / Path(name).name
@@ -335,3 +358,16 @@ def _emit_agent_events(s: Session, m) -> str:
         return m.content
     return ""
 
+
+
+def _matching_sample(upload: Path, fixtures: Path) -> Path | None:
+    """If an uploaded report is byte-identical to a bundled sample, run it as that sample. The agent's prompt names the
+    file, so this is what lets the recorded (offline) run apply to a file the owner drops in. Any other file is a new
+    report: it needs a live model, or it shows the clear 'not in the offline cache' message."""
+    if not upload.exists():
+        return None
+    h = hashlib.sha256(upload.read_bytes()).hexdigest()
+    for p in sorted(fixtures.glob("*_payout.csv")):
+        if hashlib.sha256(p.read_bytes()).hexdigest() == h:
+            return p
+    return None

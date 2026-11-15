@@ -26,8 +26,9 @@ def test_requested_with_key_stays_on(monkeypatch):
     monkeypatch.setenv("LANGSMITH_TRACING", "true")
     monkeypatch.setenv("LANGSMITH_API_KEY", "lsv2_test_not_real")
     monkeypatch.setenv("LANGSMITH_PROJECT", "reclaim")
+    monkeypatch.setattr(tracing, "project_url", lambda project: "https://smith.example/reclaim")
     assert tracing.ensure_consistent() is None
-    assert tracing.status() == {"enabled": True, "project": "reclaim", "note": None}
+    assert tracing.status() == {"enabled": True, "project": "reclaim", "note": None, "url": "https://smith.example/reclaim"}
 
 
 def test_off_by_default_and_a_key_alone_does_not_enable(monkeypatch):

@@ -23,7 +23,7 @@ Services that recover these deductions exist for chains with finance teams. Recl
 |---|---|
 | Planning (`write_todos`) | The plan is shown live and rewritten when a case turns out weak |
 | Subagents | `evidence` and `dispute-writer`, each with a narrow toolset and prompt |
-| File system | Per-case notes in `/notes`, `/plan.md`; case folders hold case, evidence, draft, decision, packet and trace |
+| File system | Per-case notes in `/notes`, `/plan.md`; case folders hold case, evidence, draft, decision, packet and trace. The **Agent files** button in the UI shows them |
 | Persistent memory | `/memory/AGENTS.md` loaded into every prompt, plus an outcomes database and a `recall_similar_cases` tool |
 | Human-in-the-loop | `interrupt_on` the one tool that files a dispute, with a checkpointer to resume |
 | Permissions | Writes allowed only to `/plan.md` and `/notes/**`, so the audit trail and memory cannot be deleted or overwritten |

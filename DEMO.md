@@ -31,6 +31,33 @@ Decision paths that are recorded: approve the first dispute then skip the rest, 
 
 **8. Close (10s).** "Services exist for chains. Reclaim is for independents with no back office. Next: real payout screenshots and the live phone link."
 
+## Showing it with a real file (the CSV)
+
+On the start screen, use **Choose file** (or drop a file) and pick `fixtures/chutney_montclair_doordash_payout.csv`. Open the file first in a spreadsheet so they can see the raw rows: one row per order, and the refund rows are the "Refund" lines with a customer, an item and an amount. Say: "This is what an owner already gets from DoorDash. No integration."
+
+- A file that is **byte-identical to a bundled sample** runs as that sample, so the recorded run replays offline.
+- **Any other file** is a new report. Offline it shows the "not in the offline cache" card, honestly. With `ANTHROPIC_API_KEY` set and `make api LLM_MODE=auto` it runs the real model live.
+- A file that is not a payout report is refused with a plain message before any model call.
+
+## Showing the agent side (what is "LangChain" here)
+
+The agent is built with LangChain's Deep Agents. In the app you can point at three things:
+1. **Plan and subagents** in the Agent panel: the plan is the Deep Agents planning tool; "evidence" and "dispute-writer" are subagents.
+2. **Agent files** (header button): the files the agent wrote to its file system. Open `notes/DD-51102-evidence.md` (the evidence subagent's note), a case's `draft.md`, and `trace.jsonl`. Say: "It can only write plan and note files. It cannot delete or overwrite anything else."
+3. **Memory** (header button): the persistent memory file the agent reads on every run.
+
+## Showing LangSmith
+
+LangSmith is a tracing service. It is not a model. It records every step of a run as a tree, so you can audit why the agent did something (constitution rule 8). Turn it on before the demo: in `.env` set `LANGSMITH_TRACING=true` (the key is already there), restart `make api`, and run a sample. Then click the **Traced · reclaim** badge in the header (it opens your LangSmith project).
+
+In LangSmith, open the newest `reclaim-run` trace and point at:
+- the orchestrator's model calls and its plan;
+- the two **subagent** calls (evidence, dispute-writer) nested under it, each with its own tool calls (`check_ticket_vs_claim`, `check_pickup_timestamps`, `check_repeat_claimant`, `submit_dispute`);
+- the **human-approval** step where the run paused until the owner answered;
+- tags on the trace: `replayed-from-cache` means the model outputs were replayed from a recorded real run. Say so.
+
+Tracing uploads the run's contents (items, amounts, evidence text, drafts) to LangSmith. The data here is synthetic, so that is fine. Turn it back off for anything real.
+
 ## Rehearsal notes
 
 The whole app side of beats 2 to 7 took about 7 seconds in a timed run, so the 3 minutes is you talking. Pause on the re-plan (beat 4) and the YES (beat 6); those are the two moments that sell it. The strip and the lesson list update by polling every 2.5 seconds, so after texting WON, give it a beat before opening Memory.

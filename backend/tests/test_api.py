@@ -137,3 +137,24 @@ def test_path_traversal_and_unknown_inputs(client):
     assert client.post("/api/runs", json={}).status_code == 422
     assert client.get("/api/tickets/..%2F..%2F.env").status_code == 404
     assert client.get("/api/runs/nope").status_code == 404
+
+
+def test_uploading_a_bundled_sample_runs_as_that_sample(client, fix):
+    raw = (fix / "doordash_payout.csv").read_bytes()
+    up = client.post("/api/uploads", files={"file": ("my_payout.csv", raw)}).json()["upload_id"]
+    run = client.post("/api/runs", json={"upload_id": up}).json()["run_id"]
+    wait(client, run, "waiting_approval")
+    changed = raw.replace(b"21.50", b"21.51")
+    up2 = client.post("/api/uploads", files={"file": ("other.csv", changed)}).json()["upload_id"]
+    assert client.post("/api/runs", json={"upload_id": up2}).status_code == 202   # a different file is still accepted
+
+
+def test_agent_files_are_listed_and_traversal_is_refused(client):
+    run = start(client)
+    wait(client, run, "waiting_approval")
+    files = [f["path"] for f in client.get(f"/api/runs/{run}/files").json()]
+    assert any(f.endswith("case.json") for f in files) and any(f.endswith("evidence.json") for f in files)
+    first = next(f for f in files if f.endswith("case.json"))
+    assert client.get(f"/api/runs/{run}/files/{first}").json()["text"]
+    assert client.get(f"/api/runs/{run}/files/..%2F..%2Fpyproject.toml").status_code == 404
+    assert client.get(f"/api/runs/{run}/files/%2Fetc%2Fpasswd").status_code == 404
