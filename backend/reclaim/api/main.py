@@ -22,11 +22,13 @@ from ..env import load_env
 from ..agent.graph import build_agent
 from ..agent.session import Session
 from ..agent.tools import _case_view, build_tools
+from ..ingest.normalize import load_payout as parse_payout
 from ..llm import CacheMiss, make_model
 from ..photon.bridge import DEMO_OWNER, Bridge, DecisionRejected, WebhookTransport
 from ..schemas import AgentEventType, CaseStatus
 from ..triage.memory import Memory
 
+MAX_UPLOAD = 2 * 1024 * 1024
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -191,8 +193,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/api/uploads")
     async def upload(file: UploadFile = File(...)):
+        raw = await file.read(MAX_UPLOAD + 1)
+        if len(raw) > MAX_UPLOAD:
+            raise HTTPException(413, "file is too large for a payout report (2 MB limit)")
         uid = uuid.uuid4().hex[:12]
-        (cfg.data / "uploads" / f"{uid}.csv").write_bytes(await file.read())
+        (cfg.data / "uploads" / f"{uid}.csv").write_bytes(raw)
         return {"upload_id": uid}
 
     @app.post("/api/runs", status_code=202)
@@ -205,6 +210,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(422, "give a fixture name or an upload_id")
         if not path.exists():
             raise HTTPException(404, "payout file not found")
+        try:   # fail fast and free: no model call is spent on a file we cannot read
+            parsed = parse_payout(path)
+        except Exception as e:
+            raise HTTPException(422, f"could not read this payout report: {str(e)[:200]}")
+        if not parsed.deductions:
+            detail = parsed.errors[0] if parsed.errors else "no refund deductions found"
+            raise HTTPException(422, f"no refund deductions found in this report ({detail})")
         run_id = uuid.uuid4().hex[:10]
         session = Session(cfg.cases / run_id, cfg.fixtures / "tickets.json", cfg.today, memory=memory,
                           memory_dir=cfg.data / "memory")

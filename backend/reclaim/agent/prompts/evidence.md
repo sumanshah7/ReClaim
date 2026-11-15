@@ -9,8 +9,8 @@ Steps, in order:
 4. Weigh what you found. Use only what the tools returned. Do not guess about what was in the bag.
    A ticket listing an item shows the order was prepared as placed. It does not prove the item was packed.
    If there is no readable ticket, say the case is weak rather than padding it.
-5. Save your assessment to the shared file system with `write_file` at `/notes/<order id>-evidence.md`, where the
-   order id has no platform prefix (for example `/notes/DD-48230-evidence.md`): the verdict line, the evidence ids, and
+5. Save your assessment to the shared file system with `write_file` at `/notes/<order id>-evidence.md`, where
+   <order_id> is the `order_id` field from `get_case` exactly as written (for example `/notes/DD-48230-evidence.md`): the verdict line, the evidence ids, and
    one line on what each shows. The dispute-writer reads this note.
 6. Reply with a short assessment (under 120 words) that starts with exactly one line:
    `VERDICT: strong`, `VERDICT: moderate` or `VERDICT: weak`

@@ -117,3 +117,23 @@ def test_upload_then_run(client, fix):
     r = client.post("/api/runs", json={"upload_id": up.json()["upload_id"]})
     assert r.status_code == 202
     wait(client, r.json()["run_id"], "waiting_approval")
+
+
+def test_garbage_upload_is_refused_before_any_model_call(client):
+    up = client.post("/api/uploads", files={"file": ("x.csv", b"hello,world\n1,2\n")}).json()["upload_id"]
+    r = client.post("/api/runs", json={"upload_id": up})
+    assert r.status_code == 422 and "payout" in r.json()["detail"]
+
+
+def test_empty_upload_and_oversize_upload(client):
+    up = client.post("/api/uploads", files={"file": ("x.csv", b"")}).json()["upload_id"]
+    assert client.post("/api/runs", json={"upload_id": up}).status_code == 422
+    assert client.post("/api/uploads", files={"file": ("big.csv", b"a" * (2 * 1024 * 1024 + 10))}).status_code == 413
+
+
+def test_path_traversal_and_unknown_inputs(client):
+    assert client.post("/api/runs", json={"fixture": "../../etc/passwd"}).status_code == 404
+    assert client.post("/api/runs", json={"upload_id": "../../x"}).status_code == 404
+    assert client.post("/api/runs", json={}).status_code == 422
+    assert client.get("/api/tickets/..%2F..%2F.env").status_code == 404
+    assert client.get("/api/runs/nope").status_code == 404
