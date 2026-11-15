@@ -9,6 +9,9 @@ fixtures:
 seed:
 	$(PY) scripts/seed_memory.py
 
+reset:
+	$(PY) scripts/reset_demo.py
+
 record:
 	$(PY) scripts/record_cache.py --decisions approve,skip
 

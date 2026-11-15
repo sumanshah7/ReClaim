@@ -27,7 +27,8 @@ from ..ingest.normalize import load_payout as parse_payout
 from ..llm import CacheMiss, make_model
 from ..photon.bridge import DEMO_OWNER, Bridge, DecisionRejected, WebhookTransport
 from ..schemas import AgentEventType, CaseStatus
-from ..triage.memory import Memory
+from ..triage.memory import Memory, signature_of
+from ..triage.scoring import BASE_BP, blended_base
 
 MAX_UPLOAD = 2 * 1024 * 1024
 ROOT = Path(__file__).resolve().parents[3]
@@ -40,6 +41,24 @@ class Settings:
     cases: Path = ROOT / "cases"
     today: date = date(2026, 11, 14)     # fixed so the offline demo is reproducible
     model_factory: Callable | None = None
+
+
+def _memory_view(s, c) -> dict | None:
+    """Why past outcomes moved this case's win probability, from the same inputs scoring uses (no model involved).
+    None when there is no resolved history for this claim type."""
+    d = c.deduction
+    pattern = f"{d.platform.value}:{d.reason.value}"
+    sig = signature_of(c.evidence)
+    (won, total), scope = s.history(pattern, sig)
+    if total == 0:
+        return None
+    base = BASE_BP[d.reason]
+    lessons = []
+    if s.lessons_path.exists():
+        lessons = [ln[2:].strip() for ln in s.lessons_path.read_text().splitlines() if ln.startswith(f"- {pattern}")]
+    return {"claim": d.reason.value.replace("_", " "), "won": won, "total": total, "scope": scope,
+            "base_pct": base // 100, "adjusted_pct": blended_base(base, won, total) // 100,
+            "similar": s.memory.similar(pattern, sig, d.claimed_item, limit=4), "lessons": lessons[-3:]}
 
 
 @dataclass
@@ -271,7 +290,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(404, "unknown case")
         d = s.disputes.get(case_id)
         t = s.tickets.get(s.cases[case_id].deduction.order_id)
-        return {**_case_view(s.cases[case_id]), "draft": d.body if d else None,
+        return {**_case_view(s.cases[case_id]), "memory": _memory_view(s, s.cases[case_id]), "draft": d.body if d else None,
                 "cited_evidence_ids": d.cited_evidence_ids if d else [],
                 "ticket": {"order_id": t.order_id, "items": t.items,
                            "image_url": f"/api/tickets/{t.order_id}.png"} if t and t.image_path else None}

@@ -8,7 +8,14 @@ export type CaseRow = {
   evidence: Evidence[]; rank: number;
 };
 
+export type MemoryView = {
+  claim: string; won: number; total: number; scope: string; base_pct: number; adjusted_pct: number;
+  similar: { case_id: string; result: string; recovered_cents: number; same_evidence_pattern: boolean; claimed_item: string | null; lesson: string | null }[];
+  lessons: string[];
+};
+
 export type CaseDetail = CaseRow & {
+  memory: MemoryView | null;
   draft: string | null; cited_evidence_ids: string[];
   ticket: { order_id: string; items: string[]; image_url: string } | null;
 };

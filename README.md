@@ -45,7 +45,8 @@ Open http://localhost:3100 and pick a sample. No API key is needed: the default 
 | `make test` | Backend test suite |
 | `backend/.venv/bin/python scripts/audit_offline.py` | Replays every sample, both decision paths, with the network blocked |
 | `make record` / `scripts/record_cache.py` | Re-records the cache with a real model (needs `ANTHROPIC_API_KEY`) |
-| `make seed` | Resets memory to three labeled synthetic past outcomes |
+| `make reset` | Returns memory to the 3 seeded synthetic outcomes (clears pending cases and extra lessons); restart `make api` after |
+| `make seed` | Adds the seed outcomes if missing (does not clear anything) |
 | `make api LLM_MODE=scripted` | Dev-only scripted model, for UI work |
 
 **Replay covers the recorded decision paths**: approve the first dispute then skip the rest, or approve all of them. Any other order shows a clear "not in the offline cache" message instead of a wrong answer. Re-record to cover more.

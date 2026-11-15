@@ -7,8 +7,8 @@ import { deadlineLabel, platformLabel } from "@/lib/format";
 
 // Reclaim cannot file for the owner: the platforms have no public dispute API. These are the owner's own portals.
 const PORTAL: Record<string, { name: string; url: string }> = {
-  doordash: { name: "DoorDash merchant portal", url: "https://merchants.doordash.com" },
-  ubereats: { name: "Uber Eats Manager", url: "https://merchants.ubereats.com" },
+  doordash: { name: "DoorDash merchant portal", url: "https://merchant-portal.doordash.com" },
+  ubereats: { name: "Uber Eats Manager", url: "https://merchants.ubereats.com/manager/" },
 };
 
 async function copy(text: string): Promise<boolean> {

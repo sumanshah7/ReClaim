@@ -6,7 +6,7 @@ Numbers below come from the recorded run: $98.08 expected of $149.20 deducted, 7
 ## Before you go on (2 minutes)
 
 ```bash
-sqlite3 data/reclaim.db "delete from outcomes where case_id not like 'seed-%'"   # memory back to 3 seeded outcomes
+make reset      # memory back to the 3 seeded outcomes and the seeded AGENTS.md (no pending cases)
 make api        # terminal 1, offline replay (restart it so the text panel starts empty)
 make web        # terminal 2
 ```
@@ -64,6 +64,10 @@ In LangSmith, open the newest `reclaim-run` trace and point at:
 
 Tracing uploads the run's contents (items, amounts, evidence text, drafts) to LangSmith. The data here is synthetic, so that is fine. Turn it back off for anything real.
 
+## Backup if the live demo fails
+
+`docs/demo-backup/` holds a numbered screenshot sequence of the full flow (start, re-plan, memory reasoning, approve, skip, packet panel, memory, how it works). Walk through it in order with the same talk track.
+
 ## Rehearsal notes
 
 The whole app side of beats 2 to 7 took about 7 seconds in a timed run, so the 3 minutes is you talking. Pause on the re-plan (beat 4) and the YES (beat 6); those are the two moments that sell it. The strip and the lesson list update by polling every 2.5 seconds, so after texting WON, give it a beat before opening Memory.
@@ -74,7 +78,7 @@ The whole app side of beats 2 to 7 took about 7 seconds in a timed run, so the 3
 |---|---|
 | "Not in the offline cache" card | You left the recorded paths. Click New report and use approve-first-then-skip |
 | Stuck on Planning | Check terminal 1 is running; reload the page |
-| Memory shows more than 3 | Run the sqlite reset above |
+| Memory shows more than 3 | `make reset`, then restart `make api` |
 | Port busy | `make api API_PORT=8101` and `make web API_PORT=8101 WEB_PORT=3101` |
 
 ## Questions you may get

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
-import { Check, CircleAlert, CircleCheck, CircleMinus, FileQuestion, Pencil, SkipForward } from "lucide-react";
+import { Brain, Check, CircleAlert, GitBranch, CircleCheck, CircleMinus, FileQuestion, Pencil, SkipForward } from "lucide-react";
 import { api, type CaseDetail as Detail } from "@/lib/api";
 import { deadlineLabel, platformLabel, reasonLabel, usd } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -121,6 +121,7 @@ function CaseDetailBody({ runId, detail, canDecide, onDecide, onMemoryChanged }:
 
   return (
     <motion.article key={d.case_id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }} className="space-y-5">
+      {d.weak && <Replanned d={d} />}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow">{platformLabel(d.platform)} · {reasonLabel(d.reason)}</p>
@@ -142,6 +143,7 @@ function CaseDetailBody({ runId, detail, canDecide, onDecide, onMemoryChanged }:
             <ul className="mt-3 space-y-2 text-sm">
               {d.reasons.map((r, i) => <li key={i} className="flex gap-2"><span className="mt-2 size-1 shrink-0 rounded-full bg-muted-foreground" aria-hidden /><span>{r}</span></li>)}
             </ul>
+            {d.memory && <MemoryReason m={d.memory} />}
             {d.recommend_skip && <Alert className="mt-4"><AlertDescription>Reclaim recommends skipping this case: {d.skip_reason}</AlertDescription></Alert>}
           </section>
           <section className="rounded-xl bg-card p-5 hairline">
@@ -186,5 +188,34 @@ function CaseDetailBody({ runId, detail, canDecide, onDecide, onMemoryChanged }:
         </div>
       )}
     </motion.article>
+  );
+}
+
+function MemoryReason({ m }: { m: NonNullable<Detail["memory"]> }) {
+  const moved = m.adjusted_pct !== m.base_pct;
+  return (
+    <div className="mt-4 rounded-lg bg-money-dim p-3">
+      <p className="flex items-center gap-2 text-sm font-medium text-money"><Brain className="size-4" aria-hidden />From memory</p>
+      <p className="mt-1 text-sm">
+        {moved
+          ? <>Starting win rate {m.adjusted_pct > m.base_pct ? "raised" : "lowered"} from {m.base_pct}% to {m.adjusted_pct}% because {m.won} of {m.total} past “{m.claim}” disputes won ({m.scope}).</>
+          : <>Starting win rate stays at {m.base_pct}%: {m.won} of {m.total} past “{m.claim}” disputes won ({m.scope}).</>}
+      </p>
+      {m.lessons.length > 0 && (
+        <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+          {m.lessons.map((l, i) => <li key={i}><span className="text-foreground">Lesson in memory:</span> {l}</li>)}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function Replanned({ d }: { d: Detail }) {
+  const why = d.evidence.find((e) => e.supports <= 0)?.summary ?? d.skip_reason ?? "The evidence for this case is too thin.";
+  return (
+    <div role="status" className="rounded-lg border border-caution/40 bg-caution/10 p-3">
+      <p className="flex items-center gap-2 text-sm font-medium text-caution"><GitBranch className="size-4" aria-hidden />Re-planned: moved down the queue</p>
+      <p className="mt-1 text-sm">{why} Win probability is now {d.win_probability_pct}%. The agent promoted the next case and added a to-do to request the missing artifact.</p>
+    </div>
   );
 }

@@ -225,3 +225,17 @@ def test_check_results_carry_no_state_dependent_fields(env):
     for name in ("check_ticket_vs_claim", "check_pickup_timestamps", "check_repeat_claimant"):
         r = call(t, name, case_id="doordash:DD-48244")
         assert not ({"win_probability_pct", "weak", "rank_before", "rank_after"} & set(r)), name
+
+
+def test_memory_view_explains_the_probability_shift(env):
+    from reclaim.api.main import _memory_view
+    s, t = env
+    assert _memory_view(s, s.get(DD)) is None                       # no history: nothing to explain
+    for i, res in enumerate(["won", "won", "lost"]):
+        s.record_outcome(Outcome(case_id=f"x{i}", result=OutcomeResult(res), reason_pattern="doordash:missing_item",
+                                 signature="", claimed_item="Green Smoothie", lesson=f"lesson {i}"))
+    s.append_lesson("doordash:missing_item [] won, $1.00 recovered. Tickets matter.")
+    m = _memory_view(s, s.get(DD))
+    assert (m["won"], m["total"], m["claim"]) == (2, 3, "missing item")
+    assert m["adjusted_pct"] > m["base_pct"] == 55                   # 2 of 3 won pulls the 55% base upward
+    assert any("Tickets matter" in l for l in m["lessons"]) and len(m["similar"]) == 3
