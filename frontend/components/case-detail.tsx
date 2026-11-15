@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
-import { Brain, Check, CircleAlert, GitBranch, CircleCheck, CircleMinus, FileQuestion, Pencil, SkipForward } from "lucide-react";
+import { ArrowRight, Brain, Check, CircleAlert, GitBranch, CircleCheck, CircleMinus, FileQuestion, Pencil, SkipForward } from "lucide-react";
 import { api, type CaseDetail as Detail } from "@/lib/api";
 import { deadlineLabel, platformLabel, reasonLabel, usd } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -74,7 +74,7 @@ function OutcomeForm({ runId, d, onSaved }: { runId: string; d: Detail; onSaved:
   if (saved) return <p className="text-sm text-muted-foreground">Saved to memory. Similar cases will be scored with this result.</p>;
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">Once the platform replies, record the result here (or text WON 28.40 / LOST) so Reclaim learns from similar cases.</p>
+      <p className="text-sm text-muted-foreground">Once the platform replies, record the result here (or text WON 28.40 / LOST) so Re-Claim learns from similar cases.</p>
       <Textarea value={lesson} onChange={(e) => setLesson(e.target.value)} placeholder="Optional: one factual line about what mattered" rows={2} aria-label="Lesson" />
       <div className="flex gap-2">
         <Button size="sm" disabled={busy} onClick={() => save("won")}>Won</Button>
@@ -87,6 +87,8 @@ function OutcomeForm({ runId, d, onSaved }: { runId: string; d: Detail; onSaved:
 type Props = {
   runId: string; detail: Detail | null; loading: boolean; canDecide: boolean;
   onDecide: (d: "approve" | "edit" | "skip", body?: string) => Promise<void>; onMemoryChanged: () => void;
+  holding?: boolean;                                           // the owner just approved this case: keep it in view
+  next?: { orderId: string; onNext: () => void } | null;       // the next case waiting for a decision, offered explicitly
 };
 
 export function CaseDetail(props: Props) {
@@ -102,7 +104,7 @@ export function CaseDetail(props: Props) {
   return <CaseDetailBody key={`${detail.case_id}:${detail.draft ?? ""}`} {...props} detail={detail} />;
 }
 
-function CaseDetailBody({ runId, detail, canDecide, onDecide, onMemoryChanged }: Props & { detail: Detail }) {
+function CaseDetailBody({ runId, detail, canDecide, onDecide, onMemoryChanged, holding, next }: Props & { detail: Detail }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(detail.draft ?? "");
   const [errors, setErrors] = useState<string[]>([]);
@@ -144,7 +146,7 @@ function CaseDetailBody({ runId, detail, canDecide, onDecide, onMemoryChanged }:
               {d.reasons.map((r, i) => <li key={i} className="flex gap-2"><span className="mt-2 size-1 shrink-0 rounded-full bg-muted-foreground" aria-hidden /><span>{r}</span></li>)}
             </ul>
             {d.memory && <MemoryReason m={d.memory} />}
-            {d.recommend_skip && <Alert className="mt-4"><AlertDescription>Reclaim recommends skipping this case: {d.skip_reason}</AlertDescription></Alert>}
+            {d.recommend_skip && <Alert className="mt-4"><AlertDescription>Re-Claim recommends skipping this case: {d.skip_reason}</AlertDescription></Alert>}
           </section>
           <section className="rounded-xl bg-card p-5 hairline">
             <h3 className="eyebrow">Evidence <span className="text-muted-foreground">· only what was actually found</span></h3>
@@ -163,14 +165,23 @@ function CaseDetailBody({ runId, detail, canDecide, onDecide, onMemoryChanged }:
           editing ? <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={7} className="mt-3 text-sm leading-relaxed" aria-label="Edit dispute draft" />
             : <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">{d.draft}</p>
         ) : (
-          <p className="mt-3 text-sm text-muted-foreground">{d.weak ? "No dispute was drafted: the evidence is too thin, and Reclaim won’t pad it." : d.recommend_skip ? "No dispute was drafted because skipping is recommended." : "A draft will appear here once the agent finishes this case."}</p>
+          <p className="mt-3 text-sm text-muted-foreground">{d.weak ? "No dispute was drafted: the evidence is too thin, and Re-Claim won’t pad it." : d.recommend_skip ? "No dispute was drafted because skipping is recommended." : "A draft will appear here once the agent finishes this case."}</p>
         )}
         {d.draft && !canDecide && !final && <p className="mt-4 border-t border-border pt-4 text-sm text-muted-foreground">Drafted. Waiting for its turn to be shown to you.</p>}
         {d.status === "skipped" && <p className="mt-4 border-t border-border pt-4 text-sm text-muted-foreground">You skipped this case. Nothing was sent.</p>}
+        {holding && !canDecide && d.status !== "sent" && d.status !== "skipped" && (
+          <div role="status" className="mt-4 flex items-center gap-2 rounded-lg bg-money-dim p-4 text-sm"><CircleCheck className="size-4 text-money" aria-hidden />Approved. Preparing your packet…</div>
+        )}
         {d.status === "sent" && (
           <div className="mt-4 space-y-4 border-t border-border pt-4">
-            <PacketPanel runId={runId} d={d} />
+            <PacketPanel runId={runId} d={d} reveal={!!holding} />
             <OutcomeForm runId={runId} d={d} onSaved={onMemoryChanged} />
+          </div>
+        )}
+        {next && (
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4">
+            <p className="text-sm text-muted-foreground">Another case is waiting for your decision.</p>
+            <Button variant="outline" onClick={next.onNext}>Next case <span className="font-mono">{next.orderId}</span><ArrowRight className="size-4" aria-hidden /></Button>
           </div>
         )}
       </section>

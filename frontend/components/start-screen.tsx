@@ -22,13 +22,13 @@ export function StartScreen({ onStart, error }: { onStart: (b: { fixture?: strin
         <div className="glow glow-b -right-10 bottom-0 size-80" />
       </div>
       <div>
-        <p className="wordmark text-6xl font-bold leading-none tracking-tighter sm:text-7xl md:text-9xl" aria-hidden>Reclaim</p>
+        <p className="wordmark whitespace-nowrap text-6xl font-bold leading-none tracking-tighter sm:text-7xl md:text-9xl lg:text-[6.75rem]" aria-hidden>Re-Claim</p>
         <p className="eyebrow mt-6">For independent restaurants</p>
         <h1 className="mt-3 text-4xl font-semibold leading-[1.05] tracking-tight md:text-6xl">
           Get back what the platforms <span className="text-money">took</span>.
         </h1>
         <p className="mt-5 max-w-md text-base text-muted-foreground">
-          Drop in a payout report. Reclaim finds refund deductions, gathers evidence from your order tickets, and drafts a factual dispute.
+          Drop in a payout report. Re-Claim finds refund deductions, gathers evidence from your order tickets, and drafts a factual dispute.
           You approve every one. Nothing is sent without you.
         </p>
         <p className="mt-6 flex items-center gap-2 text-sm text-muted-foreground"><ShieldCheck className="size-4 text-money" aria-hidden />Customer names are hashed on this machine. Only case facts go to the model.</p>

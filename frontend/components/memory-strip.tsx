@@ -27,7 +27,7 @@ export function MemoryStrip({ refreshKey }: { refreshKey: number }) {
         <Brain className="size-3.5" aria-hidden />Memory · <span className="num text-foreground">{m.outcomes}</span> past outcomes
       </button>
       {open && (
-        <div role="dialog" aria-label="What Reclaim remembers" className="absolute right-0 top-full z-20 mt-2 w-[min(28rem,90vw)] rounded-xl bg-popover p-4 hairline">
+        <div role="dialog" aria-label="What Re-Claim remembers" className="absolute right-0 top-full z-20 mt-2 w-[min(28rem,90vw)] rounded-xl bg-popover p-4 hairline">
           <p className="eyebrow mb-2">Lessons from past disputes · newest first</p>
           {!!m.pending && <p className="mb-2 text-xs text-muted-foreground">{m.pending} approved {m.pending === 1 ? "dispute is" : "disputes are"} waiting for the platform’s answer. Record won or lost and it becomes a lesson.</p>}
           {lines.length === 0 ? <p className="text-sm text-muted-foreground">Nothing yet. Record the result of a sent dispute and it will show up here.</p>

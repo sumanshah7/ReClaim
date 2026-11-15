@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function Page() {
   const run = useRun();
   const [picked, setPicked] = useState<string | null>(null);
+  const [held, setHeld] = useState<string | null>(null);   // a case the owner just approved: stay on it so its packet is seen
   const [memKey, setMemKey] = useState(0);
   const pending = run.state?.pending_case ?? null;
   const [mode, setMode] = useState<string | null>(null);
@@ -32,11 +33,13 @@ export default function Page() {
   const [seen, setSeen] = useState<{ run: string | null; pending: string | null }>({ run: null, pending: null });
   if (seen.run !== run.runId || seen.pending !== pending) {
     setSeen({ run: run.runId, pending });
-    setPicked(seen.run !== run.runId ? null : pending ?? picked);
+    if (seen.run !== run.runId) { setHeld(null); setPicked(null); }
+    else if (!held) setPicked(pending ?? picked);   // while a just-approved case is held, do not jump to the next one
   }
   const selected = picked ?? run.cases[0]?.case_id ?? null;
   const setSelected = setPicked;
 
+  const nextCase = held && pending && pending !== held ? run.cases.find((c) => c.case_id === pending) : null;
   const cur = run.cases.find((c) => c.case_id === selected);
   const version = `${cur?.status}|${cur?.evidence.length}|${cur?.p_win_bp}`;
   const { detail, loading } = useCaseDetail(run.runId, selected, version);
@@ -47,7 +50,7 @@ export default function Page() {
       <div className="mx-auto flex min-h-dvh max-w-[1500px] flex-col gap-6 px-4 py-5 md:px-8">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-baseline gap-3">
-            <span className="inline-flex items-center rounded-lg bg-white px-2.5 py-1.5"><Image src="/reclaim-logo.png" alt="Reclaim" width={1862} height={309} priority unoptimized className="h-8 w-auto sm:h-9" /></span>
+            <span className="inline-flex items-center rounded-lg bg-white px-2.5 py-1.5"><Image src="/reclaim-logo.png" alt="Re-Claim" width={1862} height={309} priority unoptimized className="h-8 w-auto sm:h-9" /></span>
             <span className="hidden font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground sm:inline">you approve every dispute</span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -68,19 +71,26 @@ export default function Page() {
           <>
             <Hero hero={run.hero} loading={run.cases.length === 0} />
             <main className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_340px]">
-              <h1 className="sr-only">Reclaim case queue</h1>
+              <h1 className="sr-only">Re-Claim case queue</h1>
               {run.cases.length === 0 ? (
                 <div className="space-y-2" aria-label="Loading cases">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div>
               ) : (
                 <div className="lg:max-h-[calc(100dvh-14rem)] lg:overflow-hidden flex flex-col">
-                  <CaseQueue cases={run.cases} selected={selected} pendingCase={pending} onSelect={setSelected} />
+                  <CaseQueue cases={run.cases} selected={selected} pendingCase={pending} onSelect={(id) => { setHeld(null); setSelected(id); }} />
                 </div>
               )}
               <div className="min-w-0 lg:max-h-[calc(100dvh-14rem)] lg:overflow-y-auto scroll-quiet lg:pr-1">
                 <CaseDetail
                   runId={run.runId} detail={detail} loading={loading}
                   canDecide={!!detail && detail.case_id === pending && run.state?.status === "waiting_approval"}
-                  onDecide={(d, body) => run.decide(detail!.case_id, d, body)}
+                  holding={!!held && detail?.case_id === held}
+                  next={nextCase ? { orderId: nextCase.order_id, onNext: () => { setHeld(null); setPicked(pending); } } : null}
+                  onDecide={async (d, body) => {
+                    const id = detail!.case_id;
+                    if (d === "skip") { setHeld(null); return run.decide(id, d, body); }   // nothing to show for a skip: move on
+                    setHeld(id); setPicked(id);
+                    try { await run.decide(id, d, body); } catch (e) { setHeld(null); throw e; }
+                  }}
                   onMemoryChanged={() => setMemKey((k) => k + 1)}
                 />
               </div>

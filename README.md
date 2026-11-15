@@ -1,12 +1,12 @@
-# Reclaim
+# Re-Claim
 
-Independent restaurants lose money when a delivery platform deducts a refund after a customer says an item was missing or wrong, and the owner has no back office to contest it. Reclaim reads the payout report, finds those deductions, ranks them by what is realistically recoverable, gathers evidence from the order tickets and timestamps, and drafts a factual dispute. **The owner approves every dispute. Nothing is sent without that.**
+Independent restaurants lose money when a delivery platform deducts a refund after a customer says an item was missing or wrong, and the owner has no back office to contest it. Re-Claim reads the payout report, finds those deductions, ranks them by what is realistically recoverable, gathers evidence from the order tickets and timestamps, and drafts a factual dispute. **The owner approves every dispute. Nothing is sent without that.**
 
 > **All data in this repo is synthetic** (see `fixtures/SYNTHETIC.md`). The restaurants named in the samples are illustrative, not real records. The owner's "phone" is a simulator. The demo replays a recorded run of the real model so it works offline.
 
 ## Who it is for
 
-Services that recover these deductions exist for chains with finance teams. Reclaim is built for the independent owner who has a payout CSV and a drawer of order tickets, and nothing else: no POS integration, no back office.
+Services that recover these deductions exist for chains with finance teams. Re-Claim is built for the independent owner who has a payout CSV and a drawer of order tickets, and nothing else: no POS integration, no back office.
 
 ## What it does
 

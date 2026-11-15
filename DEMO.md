@@ -15,7 +15,7 @@ Decision paths that are recorded: approve the first dispute then skip the rest, 
 
 ## Beats
 
-**1. Hook (20s).** "A customer says an item was missing and the platform just takes the money back. A chain has a finance team to fight that. An independent owner has a CSV and a drawer of tickets, so they eat it. Reclaim is for that owner. The data here is synthetic, modeled on a momo menu, and the owner approves everything."
+**1. Hook (20s).** "A customer says an item was missing and the platform just takes the money back. A chain has a finance team to fight that. An independent owner has a CSV and a drawer of tickets, so they eat it. Re-Claim is for that owner. The data here is synthetic, modeled on a momo menu, and the owner approves everything."
 
 **2. Drop in the payout (15s).** Choose the Chutney sample. The counter animates to **$95.30 recoverable this week** and the nearest deadline. Say: "estimates, not guarantees".
 
@@ -29,7 +29,7 @@ Decision paths that are recorded: approve the first dispute then skip the rest, 
 
 **7. Memory (20s).** Open Memory: three past outcomes with lessons. "Similar cases start from what happened before." Then text `WON 28.40` in the Text approval panel: the strip goes from 3 to 4 within a couple of seconds (it counts won and lost results only, not disputes still awaiting an answer) and the new lesson ("won, $28.40 recovered") appears at the top of the list.
 
-**8. Close (10s).** "Services exist for chains. Reclaim is for independents with no back office. Next: real payout screenshots and the live phone link."
+**8. Close (10s).** "Services exist for chains. Re-Claim is for independents with no back office. Next: real payout screenshots and the live phone link."
 
 ## Showing it with a real file (the CSV)
 

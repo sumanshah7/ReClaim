@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Reclaim",
+  title: "Re-Claim",
   description: "Recover money that delivery platforms deduct from independent restaurants. You approve every dispute.",
 };
 

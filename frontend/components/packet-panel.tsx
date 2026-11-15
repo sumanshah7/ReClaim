@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CircleCheck, Copy, ExternalLink } from "lucide-react";
 import { api, type CaseDetail as Detail } from "@/lib/api";
 import { deadlineLabel, platformLabel } from "@/lib/format";
@@ -16,8 +16,15 @@ async function copy(text: string): Promise<boolean> {
 }
 
 /** What "approved" means: a packet is ready, and the owner files it. Shows the next step instead of a bare "Sent". */
-export function PacketPanel({ runId, d }: { runId: string; d: Detail }) {
+export function PacketPanel({ runId, d, reveal = false }: { runId: string; d: Detail; reveal?: boolean }) {
   const [msg, setMsg] = useState("");
+  const box = useRef<HTMLDivElement>(null);
+  // Just approved: bring the packet into view so the output is the first thing the owner sees (not on a plain revisit).
+  useEffect(() => {
+    if (!reveal) return;
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    box.current?.scrollIntoView({ block: "nearest", behavior: calm ? "auto" : "smooth" });
+  }, [reveal]);
   const portal = PORTAL[d.platform];
   const say = (m: string) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
   const copyText = async (what: "dispute" | "packet") => {
@@ -29,10 +36,10 @@ export function PacketPanel({ runId, d }: { runId: string; d: Detail }) {
   };
   const btn = "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors hairline hover:text-foreground text-muted-foreground";
   return (
-    <div className="rounded-lg bg-money-dim p-4">
+    <div ref={box} className="scroll-mb-24 rounded-lg bg-money-dim p-4">
       <p className="flex items-center gap-2 text-sm font-medium"><CircleCheck className="size-4 text-money" aria-hidden />Approved. Packet ready to file.</p>
       <p className="mt-2 text-sm text-muted-foreground">
-        {platformLabel(d.platform)} has no way for Reclaim to submit this for you, so the last step is yours: open the portal,
+        {platformLabel(d.platform)} has no way for Re-Claim to submit this for you, so the last step is yours: open the portal,
         find order <span className="font-mono text-foreground">{d.order_id}</span>, and paste the dispute text.
         File by <span className="text-foreground">{d.deadline}</span> ({deadlineLabel(d.days_left)}).
       </p>
