@@ -27,9 +27,13 @@ Decision paths that are recorded: approve the first dispute then skip the rest, 
 
 **6. Owner approval (30s).** Open **Text approval**. The same draft arrived as a message. Tap YES. Case shows SENT and the packet is written. "One gate, two front ends. Only a plain yes sends: 'yes, but change it' does nothing." Say it is a simulated phone.
 
-**7. Memory (20s).** Open Memory: three past outcomes with lessons. "Similar cases start from what happened before." Then record a result (`WON 28.40` in the text panel) and watch the count go to 4.
+**7. Memory (20s).** Open Memory: three past outcomes with lessons. "Similar cases start from what happened before." Then text `WON 28.40` in the Text approval panel: the strip goes to 4 within a couple of seconds and the new lesson ("won, $28.40 recovered") appears at the top of the list.
 
 **8. Close (10s).** "Services exist for chains. Reclaim is for independents with no back office. Next: real payout screenshots and the live phone link."
+
+## Rehearsal notes
+
+The whole app side of beats 2 to 7 took about 7 seconds in a timed run, so the 3 minutes is you talking. Pause on the re-plan (beat 4) and the YES (beat 6); those are the two moments that sell it. The strip and the lesson list update by polling every 2.5 seconds, so after texting WON, give it a beat before opening Memory.
 
 ## If something goes wrong
 

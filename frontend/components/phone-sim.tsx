@@ -11,7 +11,7 @@ export function PhoneSim() {
   const [st, setSt] = useState<PhoneState | null>(null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
-  const end = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setOpen(false), []);
   useEscape(open, close, btn);
@@ -23,7 +23,8 @@ export function PhoneSim() {
     const t = setInterval(tick, open ? 1200 : 4000);
     return () => { live = false; clearInterval(t); };
   }, [open]);
-  useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [st?.messages.length, open]);
+  // Scroll only the message list; scrollIntoView would also scroll the whole page.
+  useEffect(() => { const el = list.current; if (el) el.scrollTop = el.scrollHeight; }, [st?.messages.length, open]);
 
   if (!st) return null;
   const send = async (text: string) => {
@@ -43,7 +44,7 @@ export function PhoneSim() {
         <div role="dialog" aria-label="Simulated owner phone" className="absolute right-0 top-full z-20 mt-2 flex w-[min(24rem,92vw)] flex-col rounded-xl bg-popover p-4 hairline">
           <p className="eyebrow">Owner&apos;s phone · {st.mode === "simulator" ? "simulator" : "live link"}</p>
           <p className="mb-3 mt-1 text-xs text-muted-foreground">Same gate as the buttons. Only a plain YES sends anything.</p>
-          <div tabIndex={0} role="log" aria-label="Messages" className="scroll-quiet flex max-h-72 min-h-24 flex-col gap-2 overflow-y-auto focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring">
+          <div ref={list} tabIndex={0} role="log" aria-label="Messages" className="scroll-quiet flex max-h-72 min-h-24 flex-col gap-2 overflow-y-auto focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring">
             {st.messages.length === 0 && <p className="text-sm text-muted-foreground">No messages yet. Start a run; the first draft arrives here.</p>}
             {st.messages.map((m, i) => (
               <div key={i} className={m.direction === "out" ? "max-w-[88%] self-start" : "max-w-[88%] self-end"}>
@@ -51,7 +52,6 @@ export function PhoneSim() {
                 {m.note && <p className="mt-0.5 text-[11px] text-muted-foreground">{m.note}</p>}
               </div>
             ))}
-            <div ref={end} />
           </div>
           <div className="mt-3 flex gap-2">
             {["YES", "NO"].map((q) => (

@@ -69,8 +69,14 @@ function Line({ e }: { e: AgentEvent }) {
 export function AgentPanel({ events, state }: { events: AgentEvent[]; state: RunState | null }) {
   const todos = useMemo(() => deriveTodos(events), [events]);
   const log = useMemo(() => events.filter((e) => ["replan", "interrupt", "subagent", "tool_call", "done", "error"].includes(e.type)), [events]);
-  const end = useRef<HTMLDivElement>(null);
-  useEffect(() => { end.current?.scrollIntoView({ block: "end", behavior: "smooth" }); }, [log.length]);
+  const activity = useRef<HTMLElement>(null);
+  // Scroll only the activity list. scrollIntoView would also scroll the whole page out from under the owner.
+  useEffect(() => {
+    const el = activity.current;
+    if (!el) return;
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollTo({ top: el.scrollHeight, behavior: calm ? "auto" : "smooth" });
+  }, [log.length]);
   const status = state?.status ?? "running";
   const label = { running: "Working", waiting_approval: "Waiting for you", done: "Finished", error: "Stopped" }[status];
 
@@ -98,11 +104,10 @@ export function AgentPanel({ events, state }: { events: AgentEvent[]; state: Run
             </ul>
           )}
         </section>
-        <section tabIndex={0} aria-label="Activity" className="scroll-quiet min-h-0 flex-1 overflow-y-auto p-5 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring">
+        <section ref={activity} tabIndex={0} aria-label="Activity" className="scroll-quiet min-h-0 flex-1 overflow-y-auto p-5 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring">
           <h3 className="eyebrow mb-2">Activity</h3>
           <div className="space-y-2.5">
             {log.map((e) => <motion.div key={e.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}><Line e={e} /></motion.div>)}
-            <div ref={end} />
           </div>
         </section>
       </div>
