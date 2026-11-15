@@ -1,0 +1,11 @@
+Order UUID,Order Time,Handoff Time,Event,Reason,Customer,Item,Total Adjustment,Payout Date
+UE-tf01a,2026-11-04 18:10,2026-11-04 18:38,Refund - Order Issue,Missing item,Vikram J,Chicken Biryani (Family Size),-$52.00,2026-11-12
+UE-tf02b,2026-11-05 19:00,2026-11-05 19:26,Refund - Order Issue,Missing item,Neha K,Lamb Biryani,-$21.50,2026-11-12
+UE-tf03c,2026-11-05 20:15,2026-11-05 20:36,Refund - Order Issue,Missing item,Meera V,Garlic Naan,-$15.00,2026-11-12
+UE-tf04d,2026-11-06 12:30,2026-11-06 12:53,Refund - Order Issue,Wrong item,Meera V,Veg Biryani,-$18.25,2026-11-12
+UE-tf05e,2026-11-07 19:40,2026-11-07 20:02,Refund - Order Issue,Missing item,Meera V,Samosa (2 pc),-$12.75,2026-11-12
+UE-tf06f,2026-11-08 18:25,2026-11-08 18:50,Refund - Order Issue,Missing item,Imran H,Butter Chicken,-$31.20,2026-11-12
+UE-tf07g,2026-11-09 13:15,2026-11-09 13:38,Refund - Order Issue,Missing item,Tara G,Chicken Tikka,-$26.80,2026-11-12
+UE-tf08h,2026-11-09 20:05,2026-11-09 20:25,Refund - Order Issue,Missing item,Rahul D,Gulab Jamun (2 pc),-$9.00,2026-11-12
+UE-tf09i,2026-11-10 19:30,2026-11-10 19:52,Refund - Order Issue,Other,Sana F,,-$14.00,2026-11-12
+UE-tf00z,2026-10-06 18:00,2026-10-06 18:24,Refund - Order Issue,Missing item,Omar Q,Chicken Biryani,-$24.00,2026-10-10

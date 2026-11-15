@@ -14,8 +14,8 @@ Procedure:
    for at most the top 5 cases. Add a final todo to send the drafts the owner approves.
 3. For each case in order, delegate to the `evidence` subagent with the exact case_id, using the `task` tool.
    Run them one at a time.
-4. Read each evidence result. If a case came back weak, or the queue order changed (a `rank_after` worse than
-   `rank_before`), RE-PLAN: call `write_todos` again to demote or skip that case, promote the next case, and
+4. Read each evidence result and call `triage_cases` to see the updated queue order. If a case came back weak, or it
+   dropped down the queue, RE-PLAN: call `write_todos` again to demote or skip that case, promote the next case, and
    add a todo to ask the owner for the missing artifact (for example "request ticket photo for order X").
    Call `triage_cases` again if you need the new order.
    Use persistent memory: your instructions include lessons from past disputes. After the evidence result,

@@ -13,6 +13,8 @@ export type CaseDetail = CaseRow & {
   ticket: { order_id: string; items: string[]; image_url: string } | null;
 };
 
+export type Sample = { file: string; label: string; platform: string; note: string };
+
 export type Hero = {
   recoverable_cents: number; gross_cents: number; workable_cases: number;
   next_deadline: string | null; next_deadline_days: number | null;
@@ -33,7 +35,7 @@ async function j<T>(res: Response): Promise<T> {
 }
 
 export const api = {
-  fixtures: () => fetch("/api/fixtures").then(j<string[]>),
+  fixtures: () => fetch("/api/fixtures").then(j<Sample[]>),
   upload: (file: File) => { const f = new FormData(); f.append("file", file); return fetch("/api/uploads", { method: "POST", body: f }).then(j<{ upload_id: string }>); },
   start: (body: { fixture?: string; upload_id?: string }) =>
     fetch("/api/runs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(j<{ run_id: string }>),
@@ -44,6 +46,6 @@ export const api = {
     fetch(`/api/runs/${id}/cases/${encodeURIComponent(caseId)}/decision`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision, body }) }).then(j<{ ok: boolean }>),
   outcome: (id: string, caseId: string, o: { result: "won" | "lost"; recovered_cents: number; lesson: string }) =>
     fetch(`/api/runs/${id}/cases/${encodeURIComponent(caseId)}/outcome`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(o) }).then(j<{ ok: boolean }>),
-  health: () => fetch("/api/health").then(j<{ ok: boolean; llm_mode: string }>),
+  health: () => fetch("/api/health").then(j<{ ok: boolean; llm_mode: string; tracing?: { enabled: boolean; project: string; note: string | null } }>),
   memory: () => fetch("/api/memory").then(j<{ outcomes: number; lessons: string }>),
 };

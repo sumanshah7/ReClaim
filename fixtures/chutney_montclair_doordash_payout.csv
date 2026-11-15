@@ -1,0 +1,16 @@
+Store,Order ID,Order Time,Pickup Time,Transaction Type,Description,Customer,Item,Amount,Payout Date
+Chutney - Montclair NJ (synthetic),DD-51100,2026-11-03 11:50,,Order,Order payout,,,24.50,2026-11-10
+Chutney - Montclair NJ (synthetic),DD-51110,2026-11-04 12:10,,Order,Order payout,,,31.00,2026-11-10
+Chutney - Montclair NJ (synthetic),DD-51120,2026-11-05 12:45,,Order,Order payout,,,18.75,2026-11-10
+Chutney - Montclair NJ (synthetic),DD-51135,2026-11-06 19:50,,Order,Order payout,,,42.20,2026-11-10
+Chutney - Montclair NJ (synthetic),DD-51148,2026-11-07 18:40,,Order,Order payout,,,27.90,2026-11-10
+Chutney - Montclair NJ (synthetic),DD-51158,2026-11-08 13:20,,Order,Order payout,,,15.60,2026-11-10
+Chutney - Montclair NJ (synthetic),DD-51102,2026-11-03 19:05,2026-11-03 19:27,Refund,Customer refund - Missing item,Rohan P,Chicken Momo Party Tray,-46.80,2026-11-10
+Chutney - Montclair NJ (synthetic),DD-51115,2026-11-04 12:40,2026-11-04 12:58,Refund,Customer refund - Missing item,Anita B,Jhol Momo,-17.50,2026-11-10
+Chutney - Montclair NJ (synthetic),DD-51123,2026-11-05 18:20,2026-11-05 18:40,Refund,Customer refund - Missing item,Kiran T,Veg Momo (Fried),-14.25,2026-11-10
+Chutney - Montclair NJ (synthetic),DD-51131,2026-11-06 19:15,2026-11-06 19:34,Refund,Customer refund - Wrong item,Kiran T,Chicken Momo (Steamed),-19.00,2026-11-10
+Chutney - Montclair NJ (synthetic),DD-51140,2026-11-07 13:05,2026-11-07 13:21,Refund,Customer refund - Missing item,Kiran T,Chili Momo,-13.75,2026-11-10
+Chutney - Montclair NJ (synthetic),DD-51152,2026-11-07 20:10,2026-11-07 20:29,Refund,Customer refund - Missing item,Dev M,Chicken Thukpa,-28.40,2026-11-10
+Chutney - Montclair NJ (synthetic),DD-51160,2026-11-08 14:00,2026-11-08 14:17,Refund,Customer refund - Missing item,Sunita L,Mango Lassi,-9.50,2026-11-10
+Chutney - Montclair NJ (synthetic),DD-51171,2026-11-08 21:00,2026-11-08 21:18,Refund,Customer refund - Other,Pooja R,,-11.00,2026-11-10
+Chutney - Montclair NJ (synthetic),DD-50980,2026-10-17 18:30,2026-10-17 18:50,Refund,Customer refund - Missing item,Arjun S,Chicken Momo (Steamed),-22.00,2026-10-20

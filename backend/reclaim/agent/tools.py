@@ -102,13 +102,14 @@ def build_tools(s: Session) -> dict[str, BaseTool]:
                    "extraction_confidence": t.extraction_confidence})
 
     def _evidence_result(case_id, ev):
+        """Records the evidence and returns ONLY that evidence. The model may run the three checks in parallel on
+        separate threads, so nothing here may depend on which check finished first (no scores, no queue ranks).
+        The updated score is read afterwards with get_case."""
         if ev is None:
             return _j({"ok": True, "evidence": None, "note": "nothing to record for this check"})
-        change = s.add_evidence(case_id, ev)
-        c = s.get(case_id)
+        s.add_evidence(case_id, ev)
         return _j({"ok": True, "evidence": {"id": ev.id, "kind": ev.kind.value, "supports": ev.supports,
-                                            "summary": ev.summary, "source": ev.source_ref},
-                   "win_probability_pct": c.p_win_bp // 100, "weak": c.weak, **change})
+                                            "summary": ev.summary, "source": ev.source_ref}})
 
     @tool
     @traced

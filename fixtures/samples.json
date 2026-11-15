@@ -1,0 +1,26 @@
+[
+  {
+    "file": "doordash_payout.csv",
+    "label": "Demo Bowl Shop",
+    "platform": "DoorDash",
+    "note": "synthetic"
+  },
+  {
+    "file": "ubereats_payout.csv",
+    "label": "Demo sample",
+    "platform": "Uber Eats",
+    "note": "synthetic"
+  },
+  {
+    "file": "chutney_montclair_doordash_payout.csv",
+    "label": "Chutney, Montclair NJ",
+    "platform": "DoorDash",
+    "note": "synthetic, momo menu"
+  },
+  {
+    "file": "tandoori_flames_parsippany_ubereats_payout.csv",
+    "label": "Tandoori Flames, Parsippany NJ",
+    "platform": "Uber Eats",
+    "note": "synthetic, biryani and tandoori menu"
+  }
+]

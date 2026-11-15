@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MotionConfig } from "motion/react";
-import { FlaskConical, RotateCcw } from "lucide-react";
+import { Activity, FlaskConical, RotateCcw } from "lucide-react";
 import { api } from "@/lib/api";
 import { useCaseDetail, useRun } from "@/hooks/use-run";
 import { AgentPanel } from "@/components/agent-panel";
@@ -21,7 +21,8 @@ export default function Page() {
   const [memKey, setMemKey] = useState(0);
   const pending = run.state?.pending_case ?? null;
   const [mode, setMode] = useState<string | null>(null);
-  useEffect(() => { api.health().then((h) => setMode(h.llm_mode)).catch(() => setMode(null)); }, []);
+  const [trace, setTrace] = useState<{ enabled: boolean; project: string } | null>(null);
+  useEffect(() => { api.health().then((h) => { setMode(h.llm_mode); setTrace(h.tracing ?? null); }).catch(() => setMode(null)); }, []);
 
   // Selection is derived: bring the owner to whatever newly needs a decision (and reset for a new run),
   // otherwise keep their pick, otherwise show the top case.
@@ -48,6 +49,7 @@ export default function Page() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {mode === "scripted" && <span title="A deterministic test model is driving the agent, not Claude." className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-mono text-[11px] uppercase tracking-wider text-caution hairline"><FlaskConical className="size-3.5" />Scripted dev model</span>}
+            {trace?.enabled && <span title={`Each run is traced to LangSmith project “${trace.project}”.`} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hairline"><Activity className="size-3.5" />Traced · {trace.project}</span>}
             <MemoryStrip refreshKey={memKey + (run.state?.status === "done" ? 1 : 0)} />
             {run.runId && <Button variant="ghost" size="sm" onClick={run.reset}><RotateCcw className="size-3.5" />New report</Button>}
           </div>

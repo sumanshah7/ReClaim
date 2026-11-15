@@ -104,5 +104,187 @@
     "ready_ts": "2026-11-06T18:20:00",
     "image_path": "fixtures/tickets/UE-9a47.png",
     "extraction_confidence": 0.95
+  },
+  {
+    "order_id": "DD-51115",
+    "items": [
+      "Jhol Momo",
+      "Veg Momo (Steamed)"
+    ],
+    "placed_ts": "2026-11-04T12:40:00",
+    "ready_ts": "2026-11-04T12:55:00",
+    "image_path": "fixtures/tickets/DD-51115.png",
+    "extraction_confidence": 0.96
+  },
+  {
+    "order_id": "DD-51123",
+    "items": [
+      "Veg Momo (Fried)",
+      "Samosa Chaat"
+    ],
+    "placed_ts": "2026-11-05T18:20:00",
+    "ready_ts": "2026-11-05T18:36:00",
+    "image_path": "fixtures/tickets/DD-51123.png",
+    "extraction_confidence": 0.96
+  },
+  {
+    "order_id": "DD-51131",
+    "items": [
+      "Chicken Momo (Steamed)",
+      "Chili Momo"
+    ],
+    "placed_ts": "2026-11-06T19:15:00",
+    "ready_ts": "2026-11-06T19:31:00",
+    "image_path": "fixtures/tickets/DD-51131.png",
+    "extraction_confidence": 0.96
+  },
+  {
+    "order_id": "DD-51140",
+    "items": [
+      "Chili Momo"
+    ],
+    "placed_ts": "2026-11-07T13:05:00",
+    "ready_ts": "2026-11-07T13:18:00",
+    "image_path": "fixtures/tickets/DD-51140.png",
+    "extraction_confidence": 0.96
+  },
+  {
+    "order_id": "DD-51152",
+    "items": [
+      "Veg Momo (Steamed)",
+      "Samosa Chaat"
+    ],
+    "placed_ts": "2026-11-07T20:10:00",
+    "ready_ts": "2026-11-07T20:26:00",
+    "image_path": "fixtures/tickets/DD-51152.png",
+    "extraction_confidence": 0.96
+  },
+  {
+    "order_id": "DD-51160",
+    "items": [
+      "Chicken Momo (Pan-Fried)",
+      "Mango Lassi"
+    ],
+    "placed_ts": "2026-11-08T14:00:00",
+    "ready_ts": "2026-11-08T14:12:00",
+    "image_path": "fixtures/tickets/DD-51160.png",
+    "extraction_confidence": 0.96
+  },
+  {
+    "order_id": "DD-51171",
+    "items": [
+      "Jhol Momo"
+    ],
+    "placed_ts": "2026-11-08T21:00:00",
+    "ready_ts": "2026-11-08T21:14:00",
+    "image_path": "fixtures/tickets/DD-51171.png",
+    "extraction_confidence": 0.96
+  },
+  {
+    "order_id": "DD-50980",
+    "items": [
+      "Chicken Momo (Steamed)"
+    ],
+    "placed_ts": "2026-10-17T18:30:00",
+    "ready_ts": "2026-10-17T18:46:00",
+    "image_path": "fixtures/tickets/DD-50980.png",
+    "extraction_confidence": 0.96
+  },
+  {
+    "order_id": "UE-tf02b",
+    "items": [
+      "Lamb Biryani",
+      "Raita"
+    ],
+    "placed_ts": "2026-11-05T19:00:00",
+    "ready_ts": "2026-11-05T19:22:00",
+    "image_path": "fixtures/tickets/UE-tf02b.png",
+    "extraction_confidence": 0.95
+  },
+  {
+    "order_id": "UE-tf03c",
+    "items": [
+      "Garlic Naan",
+      "Butter Chicken"
+    ],
+    "placed_ts": "2026-11-05T20:15:00",
+    "ready_ts": "2026-11-05T20:33:00",
+    "image_path": "fixtures/tickets/UE-tf03c.png",
+    "extraction_confidence": 0.95
+  },
+  {
+    "order_id": "UE-tf04d",
+    "items": [
+      "Veg Biryani",
+      "Mango Lassi"
+    ],
+    "placed_ts": "2026-11-06T12:30:00",
+    "ready_ts": "2026-11-06T12:50:00",
+    "image_path": "fixtures/tickets/UE-tf04d.png",
+    "extraction_confidence": 0.95
+  },
+  {
+    "order_id": "UE-tf05e",
+    "items": [
+      "Samosa (2 pc)",
+      "Chicken Tikka"
+    ],
+    "placed_ts": "2026-11-07T19:40:00",
+    "ready_ts": "2026-11-07T19:58:00",
+    "image_path": "fixtures/tickets/UE-tf05e.png",
+    "extraction_confidence": 0.95
+  },
+  {
+    "order_id": "UE-tf06f",
+    "items": [
+      "Paneer Tikka Masala",
+      "Garlic Naan"
+    ],
+    "placed_ts": "2026-11-08T18:25:00",
+    "ready_ts": "2026-11-08T18:47:00",
+    "image_path": "fixtures/tickets/UE-tf06f.png",
+    "extraction_confidence": 0.95
+  },
+  {
+    "order_id": "UE-tf07g",
+    "items": [
+      "Chicken Tikka",
+      "Basmati Rice"
+    ],
+    "placed_ts": "2026-11-09T13:15:00",
+    "ready_ts": "2026-11-09T13:32:00",
+    "image_path": "fixtures/tickets/UE-tf07g.png",
+    "extraction_confidence": 0.95
+  },
+  {
+    "order_id": "UE-tf08h",
+    "items": [
+      "Gulab Jamun (2 pc)",
+      "Mango Lassi"
+    ],
+    "placed_ts": "2026-11-09T20:05:00",
+    "ready_ts": "2026-11-09T20:21:00",
+    "image_path": "fixtures/tickets/UE-tf08h.png",
+    "extraction_confidence": 0.95
+  },
+  {
+    "order_id": "UE-tf09i",
+    "items": [
+      "Lamb Biryani"
+    ],
+    "placed_ts": "2026-11-10T19:30:00",
+    "ready_ts": "2026-11-10T19:48:00",
+    "image_path": "fixtures/tickets/UE-tf09i.png",
+    "extraction_confidence": 0.95
+  },
+  {
+    "order_id": "UE-tf00z",
+    "items": [
+      "Chicken Biryani"
+    ],
+    "placed_ts": "2026-10-06T18:00:00",
+    "ready_ts": "2026-10-06T18:20:00",
+    "image_path": "fixtures/tickets/UE-tf00z.png",
+    "extraction_confidence": 0.95
   }
 ]

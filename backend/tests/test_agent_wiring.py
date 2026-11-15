@@ -77,3 +77,60 @@ def test_case_folder_audit_trail(run):
     for f in ("case.json", "evidence.json", "draft.md", "trace.jsonl", "decision.json", "packet.md", "sent.json"):
         assert (d / f).exists(), f
     assert json.loads((d / "decision.json").read_text())["decision"] == "approved"
+
+
+# ---- planning and filesystem guard (found with the real model: planning tool was missing, delete was open) ----------
+def _tools(run):
+    s, agent, cfg, first = run
+    return agent.nodes["tools"].bound.tools_by_name
+
+
+def test_planning_tool_exists(run):
+    assert "write_todos" in _tools(run)
+
+
+def test_planning_calls_succeed_not_error(run):
+    s, agent, cfg, first = run
+    msgs = agent.get_state(cfg).values["messages"]
+    todo_results = [m for m in msgs if getattr(m, "name", None) == "write_todos"]
+    assert todo_results and all(m.status != "error" for m in todo_results), [m.content for m in todo_results]
+
+
+class _Calls(PolicyChatModel):
+    """Issues a fixed list of tool calls, one per turn, then stops."""
+    calls: list = []
+
+    def _generate(self, messages, stop=None, run_manager=None, **kw):
+        from langchain_core.messages import AIMessage, ToolMessage
+        from langchain_core.outputs import ChatGeneration, ChatResult
+        n = sum(isinstance(m, ToolMessage) for m in messages)
+        if n < len(self.calls):
+            name, args = self.calls[n]
+            msg = AIMessage(content="", tool_calls=[{"name": name, "args": args, "id": f"c{n}"}])
+        else:
+            msg = AIMessage(content="done")
+        return ChatResult(generations=[ChatGeneration(message=msg)])
+
+
+def test_agent_cannot_delete_or_overwrite_audit_files_or_memory(tmp_path, fix, today):
+    s = Session(tmp_path / "cases", fix / "tickets.json", today, memory_dir=tmp_path / "memory")
+    s.lessons_path.write_text("# lessons\n\n- keep me\n")
+    case_dir = s.case_dir("doordash:DD-48230")
+    (case_dir / "draft.md").write_text("original draft")
+    model = _Calls()
+    model.calls = [
+        ("delete", {"file_path": "/memory/AGENTS.md"}),
+        ("write_file", {"file_path": "/memory/AGENTS.md", "content": "wiped"}),
+        ("delete", {"file_path": "/doordash_DD-48230"}),
+        ("write_file", {"file_path": "/doordash_DD-48230/draft.md", "content": "forged"}),
+        ("write_file", {"file_path": "/plan.md", "content": "my notes"}),
+    ]
+    agent = build_agent(s, model, tmp_path / "ckpt.db")
+    cfg = {"configurable": {"thread_id": "g"}, "recursion_limit": 40}
+    res = agent.invoke({"messages": [("user", "go")]}, cfg)
+    results = [m for m in res["messages"] if getattr(m, "type", "") == "tool"]
+    assert len(results) == 5
+    assert all("denied" in str(m.content).lower() or "permission" in str(m.content).lower() for m in results[:4]), [str(m.content)[:80] for m in results]
+    assert s.lessons_path.read_text() == "# lessons\n\n- keep me\n"
+    assert (case_dir / "draft.md").read_text() == "original draft"
+    assert (s.cases_dir / "plan.md").read_text() == "my notes"  # scratch notes are still allowed

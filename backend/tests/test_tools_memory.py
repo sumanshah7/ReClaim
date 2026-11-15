@@ -195,3 +195,33 @@ def test_pending_outcome_writes_no_lesson(env):
     investigate(t)
     call(t, "record_outcome", case_id=DD, result="pending")
     assert not s.lessons_path.exists()
+
+
+# ---- Concurrency: the real model runs the three checks in parallel on separate threads -------------------------------
+def test_parallel_checks_lose_no_evidence_and_are_order_independent(tmp_path, fix, today):
+    import itertools
+    from concurrent.futures import ThreadPoolExecutor
+    checks = ("check_ticket_vs_claim", "check_pickup_timestamps", "check_repeat_claimant")
+    seen_outputs, seen_final = set(), set()
+    for n, order in enumerate(itertools.permutations(checks)):
+        for rep in range(8):
+            s = Session(tmp_path / f"c{n}{rep}", fix / "tickets.json", today, memory_dir=tmp_path / f"m{n}{rep}")
+            t = build_tools(s)
+            t["load_payout"].invoke({"path": str(fix / "doordash_payout.csv")})
+            cid = "doordash:DD-48244"  # a repeat claimant: all three checks produce evidence
+            with ThreadPoolExecutor(max_workers=3) as ex:
+                outs = list(ex.map(lambda name: t[name].invoke({"case_id": cid}), order))
+            by_check = dict(zip(order, outs))
+            seen_outputs.add(tuple(by_check[c] for c in checks))      # outputs, in a fixed check order
+            c = s.get(cid)
+            assert len(c.evidence) == 3, "a parallel update was lost"
+            seen_final.add((c.p_win_bp, c.confidence, tuple(sorted(e.id for e in c.evidence))))
+    assert len(seen_outputs) == 1, "tool outputs depend on thread timing, which breaks the replay cache"
+    assert len(seen_final) == 1
+
+
+def test_check_results_carry_no_state_dependent_fields(env):
+    s, t = env
+    for name in ("check_ticket_vs_claim", "check_pickup_timestamps", "check_repeat_claimant"):
+        r = call(t, name, case_id="doordash:DD-48244")
+        assert not ({"win_probability_pct", "weak", "rank_before", "rank_after"} & set(r)), name

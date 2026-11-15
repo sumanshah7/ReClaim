@@ -17,6 +17,8 @@ from fastapi.responses import FileResponse, StreamingResponse
 from langgraph.types import Command
 from pydantic import BaseModel
 
+from .. import tracing
+from ..env import load_env
 from ..agent.graph import build_agent
 from ..agent.session import Session
 from ..agent.tools import _case_view, build_tools
@@ -64,6 +66,8 @@ class OutcomeIn(BaseModel):
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
+    load_env()
+    trace_note = tracing.ensure_consistent()
     cfg = settings or Settings()
     cfg.data.mkdir(parents=True, exist_ok=True)
     (cfg.data / "uploads").mkdir(exist_ok=True)
@@ -115,13 +119,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/health")
     def health():
-        if cfg.model_factory is not None:
-            return {"ok": True, "llm_mode": "scripted"}
-        return {"ok": True, "llm_mode": os.getenv("RECLAIM_LLM_MODE") or ("auto" if os.getenv("ANTHROPIC_API_KEY") else "replay")}
+        mode = "scripted" if cfg.model_factory is not None else (
+            os.getenv("RECLAIM_LLM_MODE") or ("auto" if os.getenv("ANTHROPIC_API_KEY") else "replay"))
+        return {"ok": True, "llm_mode": mode, "tracing": tracing.status(trace_note)}
 
     @app.get("/api/fixtures")
     def fixtures():
-        return sorted(p.name for p in cfg.fixtures.glob("*_payout.csv"))
+        """Synthetic sample payouts, labelled. samples.json supplies names; any other *_payout.csv is listed plainly."""
+        idx = cfg.fixtures / "samples.json"
+        listed = json.loads(idx.read_text()) if idx.exists() else []
+        known = {x["file"] for x in listed}
+        extra = [{"file": p.name, "label": p.stem, "platform": "", "note": "synthetic"}
+                 for p in sorted(cfg.fixtures.glob("*_payout.csv")) if p.name not in known]
+        return [x for x in listed + extra if (cfg.fixtures / x["file"]).exists()]
 
     @app.post("/api/uploads")
     async def upload(file: UploadFile = File(...)):
@@ -144,7 +154,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                           memory_dir=cfg.data / "memory")
         model = cfg.model_factory() if cfg.model_factory else make_model(cfg.fixtures / "llm_cache")
         agent = build_agent(session, model, cfg.data / "checkpoints.db")
-        run = Run(run_id, session, agent, {"configurable": {"thread_id": run_id}, "recursion_limit": 100})
+        mode = "scripted" if cfg.model_factory is not None else getattr(model, "mode", "live")
+        run = Run(run_id, session, agent, {"configurable": {"thread_id": run_id}, "recursion_limit": 100,
+                                           **tracing.run_config(run_id, mode, "upload" if req.upload_id else "synthetic-sample")})
         runs[run_id] = run
         start_thread(run, {"messages": [("user", f"Process the payout file at {path}.")]})
         return {"run_id": run_id}

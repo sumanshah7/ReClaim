@@ -2,20 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FileSpreadsheet, ShieldCheck, Upload } from "lucide-react";
-import { api } from "@/lib/api";
-import { platformLabel } from "@/lib/format";
+import { api, type Sample } from "@/lib/api";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function StartScreen({ onStart, error }: { onStart: (b: { fixture?: string; file?: File }) => void; error: string | null }) {
-  const [fixtures, setFixtures] = useState<string[] | null>(null);
+  const [fixtures, setFixtures] = useState<Sample[] | null>(null);
   const [drag, setDrag] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => { api.fixtures().then(setFixtures).catch(() => setFixtures([])); }, []);
 
   const pick = (f?: File | null) => { if (f) onStart({ file: f }); };
-  const nameOf = (f: string) => platformLabel(f.startsWith("uber") ? "ubereats" : "doordash");
 
   return (
     <div className="mx-auto grid max-w-5xl gap-10 py-10 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:py-20">
@@ -48,7 +46,7 @@ export function StartScreen({ onStart, error }: { onStart: (b: { fixture?: strin
         </div>
 
         <div className="rounded-xl bg-card p-4 hairline">
-          <p className="eyebrow mb-3">Or try a sample</p>
+          <p className="eyebrow mb-3">Or try a sample <span className="normal-case tracking-normal text-muted-foreground/70">· all synthetic data</span></p>
           {fixtures === null ? (
             <p className="text-sm text-muted-foreground">Loading samples…</p>
           ) : fixtures.length === 0 ? (
@@ -56,9 +54,13 @@ export function StartScreen({ onStart, error }: { onStart: (b: { fixture?: strin
           ) : (
             <ul className="space-y-2">
               {fixtures.map((f) => (
-                <li key={f}>
-                  <Button variant="secondary" className="w-full justify-start gap-3" onClick={() => onStart({ fixture: f })}>
-                    <FileSpreadsheet className="size-4" aria-hidden />{nameOf(f)} payout <span className="ml-auto font-mono text-xs text-muted-foreground">synthetic</span>
+                <li key={f.file}>
+                  <Button variant="secondary" className="h-auto w-full justify-start gap-3 py-2.5 text-left" onClick={() => onStart({ fixture: f.file })}>
+                    <FileSpreadsheet className="size-4 shrink-0" aria-hidden />
+                    <span className="min-w-0">
+                      <span className="block truncate">{f.label}{f.platform ? ` · ${f.platform}` : ""}</span>
+                      <span className="block truncate font-mono text-[11px] font-normal text-muted-foreground">{f.note}</span>
+                    </span>
                   </Button>
                 </li>
               ))}

@@ -46,6 +46,7 @@ class Session:
         self.draft_failures: dict[str, int] = {}
         self.events: list[AgentEvent] = []
         self._lock = threading.Lock()
+        self._case_lock = threading.RLock()  # serialises evidence updates from parallel tool calls
 
     # ---- events -------------------------------------------------------------------------
     def emit(self, type_: AgentEventType, payload: dict) -> AgentEvent:
@@ -102,6 +103,10 @@ class Session:
 
     def add_evidence(self, case_id: str, ev: Evidence) -> dict:
         """Attach evidence, rescore deterministically, and report any queue change."""
+        with self._case_lock:
+            return self._add_evidence(case_id, ev)
+
+    def _add_evidence(self, case_id: str, ev: Evidence) -> dict:
         old = self.get(case_id)
         before = [c.id for c in self.ranked()]
         evidence = [e for e in old.evidence if e.id != ev.id] + [ev]

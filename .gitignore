@@ -9,3 +9,4 @@ cases/*
 !cases/.gitkeep
 *.egg-info/
 data/
+fixtures/cache_misses/

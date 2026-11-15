@@ -30,6 +30,7 @@ def _canon(messages: list[BaseMessage]) -> list[dict]:
     for m in messages:
         d = message_to_dict(m)["data"]
         d.pop("id", None)
+        d.pop("artifact", None)  # task results carry a per-run random checkpoint uuid; it never reaches the model
         d.pop("response_metadata", None)
         d.pop("usage_metadata", None)
         out.append({"type": m.type, **d})
@@ -64,6 +65,9 @@ class CachedChatModel(BaseChatModel):
             msg = messages_from_dict([json.loads(path.read_text())])[0]
             return ChatResult(generations=[ChatGeneration(message=msg)])
         if self.mode == "replay" or self.inner is None:
+            dump = Path(self.cache_dir).parent / "cache_misses"
+            dump.mkdir(parents=True, exist_ok=True)  # the exact request that missed, for diffing against a recording
+            (dump / f"{path.stem[:12]}.json").write_text(json.dumps(_canon(messages), indent=1, default=str))
             raise CacheMiss(f"no cached LLM response for request {path.stem[:12]} (mode={self.mode}); "
                             "re-record with scripts/record_cache.py")
         out = self.inner.invoke(messages, stop=stop)

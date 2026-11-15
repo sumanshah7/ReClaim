@@ -48,12 +48,12 @@ class PolicyChatModel(BaseChatModel):
         done = [m for m in messages if isinstance(m, ToolMessage)]
         seq = [("get_case", {"case_id": cid}), ("read_ticket_image", {"order_id": cid.split(":")[1]}),
                ("check_ticket_vs_claim", {"case_id": cid}), ("check_pickup_timestamps", {"case_id": cid}),
-               ("check_repeat_claimant", {"case_id": cid})]
+               ("check_repeat_claimant", {"case_id": cid}), ("get_case", {"case_id": cid})]  # final get_case reads the new score
         if len(done) < len(seq):
             return _call(*seq[len(done)])
         ticket = json.loads(next(m.content for m in done if m.name == "check_ticket_vs_claim"))
-        weak = ticket.get("weak", False)
-        return AIMessage(content=f"VERDICT: {'weak' if weak else 'strong'}\n{cid}: evidence "
+        final = json.loads([m.content for m in done if m.name == "get_case"][-1])
+        return AIMessage(content=f"VERDICT: {'weak' if final['weak'] else 'strong'}\n{cid}: evidence "
                                  f"{ticket['evidence']['id'] if ticket.get('evidence') else 'none'}.")
 
     def _writer(self, messages):
