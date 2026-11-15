@@ -34,7 +34,8 @@ def score_case(
     d: Deduction,
     evidence: list[Evidence],
     today: date,
-    history: tuple[int, int] = (0, 0),  # (won, resolved) for this reason pattern
+    history: tuple[int, int] = (0, 0),  # (won, resolved) from outcome memory
+    history_scope: str = "same claim type",
 ) -> Case:
     reasons: list[ConfidenceReason] = []
     base = BASE_BP[d.reason]
@@ -42,7 +43,7 @@ def score_case(
     won, total = history
     p = blended_base(base, won, total)
     if total > 0:
-        reasons.append(ConfidenceReason(text=f"Prior outcomes: {won} of {total} won for this pattern", delta=p - base))
+        reasons.append(ConfidenceReason(text=f"Memory: {won} of {total} similar past cases won ({history_scope})", delta=p - base))
 
     weak = False
     for ev in evidence:
@@ -64,6 +65,8 @@ def score_case(
     confidence = round(p / 100)
     if weak:
         confidence = min(confidence, WEAK_CONFIDENCE_CAP)
+    if expired:
+        confidence = 0  # nothing left to recover, so no confidence in recovering it
 
     skip, why = False, None
     if expired:

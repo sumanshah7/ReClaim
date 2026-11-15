@@ -20,8 +20,11 @@ def triage(deductions: list[Deduction], today: date, history_fn=None,
     cases = []
     for d in deductions:
         pattern = f"{d.platform.value}:{d.reason.value}"
-        history = history_fn(pattern) if history_fn else (0, 0)
-        cases.append(score_case(d, evidence_by_id.get(d.id, []), today, history))
+        history, scope = (0, 0), "same claim type"
+        if history_fn:
+            h = history_fn(pattern)
+            history, scope = h if isinstance(h[0], tuple) else (h, scope)
+        cases.append(score_case(d, evidence_by_id.get(d.id, []), today, history, scope))
     return sort_cases(cases)
 
 

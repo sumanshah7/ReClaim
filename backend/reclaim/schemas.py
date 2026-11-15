@@ -109,6 +109,9 @@ class Outcome(BaseModel):
     result: OutcomeResult
     recovered_cents: int = 0
     reason_pattern: str  # e.g. "doordash:missing_item"
+    signature: str = ""  # evidence pattern, e.g. "ticket_lists_item+1|pickup_handoff+1"
+    claimed_item: str | None = None
+    lesson: str | None = None  # one-line takeaway, also appended to the agent's AGENTS.md memory
 
 
 class AgentEventType(str, Enum):
@@ -119,6 +122,7 @@ class AgentEventType(str, Enum):
     REPLAN = "replan"
     INTERRUPT = "interrupt"
     DONE = "done"
+    ERROR = "error"
 
 
 class AgentEvent(BaseModel):

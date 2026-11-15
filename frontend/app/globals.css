@@ -1,0 +1,112 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Fonts: literal-free runtime vars (next/font injects them on <html>). Not `inline`, so var() resolves at runtime. */
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-raised: var(--raised);
+  --color-money: var(--money);
+  --color-money-dim: var(--money-dim);
+  --color-caution: var(--caution);
+  --color-danger: var(--danger);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+/*
+  Reclaim design system
+  - Warm ink surfaces, paper-toned text. Hairline borders, no shadows.
+  - ONE accent (--money): reserved for money recovered and the single primary action.
+  - Caution/danger are functional signals only (weak evidence, expired, errors), kept low-chroma.
+  - Receipt motif: mono ids, perforated edges, large tabular numerals.
+*/
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.15 0.006 60);
+  --foreground: oklch(0.955 0.012 85);
+  --card: oklch(0.185 0.007 60);
+  --card-foreground: oklch(0.955 0.012 85);
+  --raised: oklch(0.225 0.008 60);
+  --popover: oklch(0.21 0.008 60);
+  --popover-foreground: oklch(0.955 0.012 85);
+  --secondary: oklch(0.245 0.008 60);
+  --secondary-foreground: oklch(0.93 0.012 85);
+  --muted: oklch(0.225 0.008 60);
+  --muted-foreground: oklch(0.69 0.014 75);
+  --accent: oklch(0.255 0.009 60);
+  --accent-foreground: oklch(0.955 0.012 85);
+  --border: oklch(0.3 0.009 60);
+  --input: oklch(0.3 0.009 60);
+  --ring: oklch(0.86 0.19 128 / 0.6);
+  --money: oklch(0.86 0.19 128);
+  --money-dim: oklch(0.86 0.19 128 / 0.14);
+  --primary: oklch(0.86 0.19 128);
+  --primary-foreground: oklch(0.2 0.03 128);
+  --caution: oklch(0.8 0.1 75);
+  --danger: oklch(0.68 0.15 28);
+  --destructive: oklch(0.68 0.15 28);
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  html { color-scheme: dark; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  ::selection { background: var(--money-dim); color: var(--foreground); }
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "tnum", "zero";
+  letter-spacing: -0.02em;
+}
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted-foreground);
+}
+/* perforated receipt edge */
+@utility perforated {
+  background-image: radial-gradient(circle at 50% 0, transparent 5px, var(--card) 5.5px);
+  background-size: 14px 10px;
+  background-repeat: repeat-x;
+  height: 10px;
+}
+@utility hairline { box-shadow: inset 0 0 0 1px var(--border); }
+@utility scroll-quiet { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 var(--money-dim); } 100% { box-shadow: 0 0 0 10px transparent; } }
+.live-dot { animation: pulse-ring 1.6s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }

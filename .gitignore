@@ -8,3 +8,4 @@ reclaim.db
 cases/*
 !cases/.gitkeep
 *.egg-info/
+data/

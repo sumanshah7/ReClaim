@@ -63,6 +63,7 @@ def test_expired_case_is_skipped(fix, today):
     ds, ev = _evidence(fix)
     c = next(c for c in triage(ds, today, evidence_by_id=ev) if c.id == "doordash:DD-47990")
     assert c.recommend_skip and c.recoverable_cents == 0 and c.expected_cents == 0 and c.days_left < 0
+    assert c.confidence == 0  # nothing left to recover, so no confidence
 
 
 def test_other_reason_recommended_skip(fix, today):
@@ -115,7 +116,7 @@ def test_memory_shifts_probability(fix, today):
     d = next(x for x in _ds(fix) if x.order_id == "DD-48230")
     assert triage([d], today, history_fn=m.stats)[0].p_win_bp < triage([d], today)[0].p_win_bp
     assert blended_base(5500, 0, 0) == 5500
-    assert any("Prior outcomes" in r.text for r in triage([d], today, history_fn=m.stats)[0].reasons)
+    assert any("Memory:" in r.text for r in triage([d], today, history_fn=m.stats)[0].reasons)
 
 
 def test_memory_upsert():
