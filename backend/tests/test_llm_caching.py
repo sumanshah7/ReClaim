@@ -49,3 +49,10 @@ def test_usage_is_recorded_from_the_api_response(tmp_path):
 def test_max_tokens_is_capped(monkeypatch, tmp_path):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
     assert llm.make_model(tmp_path, mode="record").inner.max_tokens == llm.DEFAULT_MAX_TOKENS < 2048
+
+
+def test_cache_writes_are_counted_from_ephemeral_keys():
+    start = llm.USAGE["cache_creation"]
+    llm.record_usage(AIMessage(content="x", usage_metadata={"input_tokens": 100, "output_tokens": 1, "total_tokens": 101,
+        "input_token_details": {"cache_read": 0, "cache_creation": 0, "ephemeral_5m_input_tokens": 90}}))
+    assert llm.USAGE["cache_creation"] - start == 90

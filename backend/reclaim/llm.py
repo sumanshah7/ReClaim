@@ -35,7 +35,9 @@ def record_usage(msg: BaseMessage) -> None:
     USAGE["calls"] += 1
     USAGE["input"] += u.get("input_tokens", 0)   # langchain's input_tokens already includes cached tokens
     USAGE["cache_read"] += d.get("cache_read", 0) or 0
-    USAGE["cache_creation"] += d.get("cache_creation", 0) or 0
+    # Writes show up as cache_creation or, with ttl-aware responses, split into the ephemeral_* keys (cache_creation then reads 0).
+    USAGE["cache_creation"] += (d.get("cache_creation") or 0) + (d.get("ephemeral_5m_input_tokens") or 0) \
+        + (d.get("ephemeral_1h_input_tokens") or 0)
     USAGE["output"] += u.get("output_tokens", 0)
 
 
