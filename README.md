@@ -1,0 +1,64 @@
+# Reclaim
+
+Independent restaurants lose money when a delivery platform deducts a refund after a customer says an item was missing or wrong, and the owner has no back office to contest it. Reclaim reads the payout report, finds those deductions, ranks them by what is realistically recoverable, gathers evidence from the order tickets and timestamps, and drafts a factual dispute. **The owner approves every dispute. Nothing is sent without that.**
+
+> **All data in this repo is synthetic** (see `fixtures/SYNTHETIC.md`). The restaurants named in the samples are illustrative, not real records. The owner's "phone" is a simulator. The demo replays a recorded run of the real model so it works offline.
+
+## Who it is for
+
+Services that recover these deductions exist for chains with finance teams. Reclaim is built for the independent owner who has a payout CSV and a drawer of order tickets, and nothing else: no POS integration, no back office.
+
+## What it does
+
+1. **Ingest** a DoorDash or Uber Eats payout CSV (plain code, tested; customer names are hashed on load).
+2. **Triage** every refund deduction with a deterministic score: expected recovery = amount x win probability, earliest deadline breaks ties (14 days DoorDash, 30 days Uber Eats).
+3. **Investigate** with a deep agent: an *evidence* subagent reads the ticket and runs three checks (ticket vs claim, pickup timestamps, repeat claimant); it can mark a case weak and the orchestrator **re-plans** around it.
+4. **Draft** with a *dispute-writer* subagent: facts only, cites evidence ids, never accuses the customer. A wording lint and an evidence-id check run on every draft, including the owner's edits.
+5. **Approve** in the web app or by text. Only a plain YES sends. Each sent dispute becomes a packet in the case folder.
+6. **Learn.** Recording the outcome (web or `WON 46.80` / `LOST` by text) goes into persistent memory: SQLite stats that adjust win probability for similar cases, plus a lessons file the agent reads on every run.
+
+## How the Deep Agent is used
+
+| Deep Agents feature | Use |
+|---|---|
+| Planning (`write_todos`) | The plan is shown live and rewritten when a case turns out weak |
+| Subagents | `evidence` and `dispute-writer`, each with a narrow toolset and prompt |
+| File system | Per-case notes in `/notes`, `/plan.md`; case folders hold case, evidence, draft, decision, packet and trace |
+| Persistent memory | `/memory/AGENTS.md` loaded into every prompt, plus an outcomes database and a `recall_similar_cases` tool |
+| Human-in-the-loop | `interrupt_on` the one tool that files a dispute, with a checkpointer to resume |
+| Permissions | Writes allowed only to `/plan.md` and `/notes/**`, so the audit trail and memory cannot be deleted or overwritten |
+
+Judgment (reading messy evidence, weighing it, writing prose) is the model's job. Parsing, date math, money math and scoring are plain code with tests (constitution rule 7).
+
+## Run it
+
+```bash
+cp .env.example .env            # optional: only needed to record or to trace
+make api                        # API on :8100, offline replay by default
+make web                        # UI on :3100
+```
+
+Open http://localhost:3100 and pick a sample. No API key is needed: the default mode replays a recorded real-model run from `fixtures/llm_cache`.
+
+| Command | What it does |
+|---|---|
+| `make test` | Backend test suite |
+| `backend/.venv/bin/python scripts/audit_offline.py` | Replays every sample, both decision paths, with the network blocked |
+| `make record` / `scripts/record_cache.py` | Re-records the cache with a real model (needs `ANTHROPIC_API_KEY`) |
+| `make seed` | Resets memory to three labeled synthetic past outcomes |
+| `make api LLM_MODE=scripted` | Dev-only scripted model, for UI work |
+
+**Replay covers the recorded decision paths**: approve the first dispute then skip the rest, or approve all of them. Any other order shows a clear "not in the offline cache" message instead of a wrong answer. Re-record to cover more.
+
+## Safety rules (see `CONSTITUTION.md`)
+
+Human approval gate; evidence or silence; honest scoring with written reasons; no fraud accusations; deadline awareness; works from what the owner has; deterministic core; traceable; offline-capable; private. Tests cover the approval gate, evidence validation, the wording lint, the text-approval parser (a bare YES approves, "yes but..." does not), and that raw customer names never reach model-visible output.
+
+## Status and known limits
+
+- **Text approval is simulated.** The bridge, parser and outcome-by-text loop are tested; an outbound webhook for a Photon sidecar exists (`PHOTON_BRIDGE_URL`) but has not been run against live Photon.
+- **LangSmith tracing** is wired (set `LANGSMITH_TRACING=true` and a key; it switches itself off without one) but has not been verified against a live account. Tracing uploads run contents, so it is off by default. Every run also writes a local case folder with a `trace.jsonl`.
+- **"Send" files a packet; it does not call a platform.** There is no public dispute API, so the packet is what the owner files.
+- **Inputs are CSV and ticket images.** Payout screenshots and PDFs are not supported yet. Grubhub is not supported.
+- **Win probabilities are heuristics** (a fixed table plus evidence adjustments and a small memory prior), not measured platform win rates. The UI says "estimates, not guarantees".
+- Deadlines are counted from the payout date; the platforms' exact rules should be confirmed before relying on them.
