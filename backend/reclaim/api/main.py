@@ -11,7 +11,7 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, Literal
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from langgraph.types import Command
@@ -23,6 +23,7 @@ from ..agent.graph import build_agent
 from ..agent.session import Session
 from ..agent.tools import _case_view, build_tools
 from ..llm import CacheMiss, make_model
+from ..photon.bridge import DEMO_OWNER, Bridge, DecisionRejected, WebhookTransport
 from ..schemas import AgentEventType, CaseStatus
 from ..triage.memory import Memory
 
@@ -59,6 +60,11 @@ class Decision(BaseModel):
     body: str | None = None              # required for edit
 
 
+class Inbound(BaseModel):
+    sender: str
+    text: str
+
+
 class OutcomeIn(BaseModel):
     result: Literal["won", "lost", "pending"]
     recovered_cents: int = 0
@@ -73,6 +79,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     (cfg.data / "uploads").mkdir(exist_ok=True)
     memory = Memory(cfg.data / "reclaim.db")   # shared across runs: this is the persistent memory
     runs: dict[str, Run] = {}
+    hook = os.getenv("PHOTON_BRIDGE_URL")
+    bridge = Bridge(transport=WebhookTransport(hook) if hook else Bridge().transport,
+                    owner=(os.getenv("OWNER_PHONE") or DEMO_OWNER) if hook else DEMO_OWNER)
     app = FastAPI(title="Reclaim")
     app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
                        allow_methods=["*"], allow_headers=["*"])
@@ -102,10 +111,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 s.emit(AgentEventType.INTERRUPT, {"case_id": run.pending_case, "tool": req["name"],
                                                   "message": "Waiting for the owner to approve, edit or skip."})
                 run.status = "waiting_approval"   # status flips after its event is visible
+                _notify(run)
             else:
                 run.pending_case = None
                 s.emit(AgentEventType.DONE, {"summary": last_text})
                 run.status = "done"
+                _notify_done(run)
         except CacheMiss as e:
             s.emit(AgentEventType.ERROR, {"kind": "cache_miss", "message": str(e)})
             run.status = "error"
@@ -116,6 +127,51 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def start_thread(run: Run, payload) -> None:
         run.status = "running"
         threading.Thread(target=drive, args=(run, payload), daemon=True).start()
+
+
+    def _notify(run: Run) -> None:
+        try:
+            s = run.session
+            bridge.notify(run.id, s.get(run.pending_case), s.disputes[run.pending_case].body)
+        except Exception:  # the text channel is optional; the web UI still has the decision
+            pass
+
+    def _notify_done(run: Run) -> None:
+        try:
+            st = [c.status for c in run.session.cases.values()]
+            bridge.notify_done(sum(x == CaseStatus.SENT for x in st), sum(x == CaseStatus.SKIPPED for x in st))
+        except Exception:
+            pass
+
+    def apply_decision(run_id: str, case_id: str, decision: str, body: str | None) -> None:
+        """The single approval gate. The web UI and the text bridge both call this; nothing else resumes the graph."""
+        if run_id not in runs:
+            raise DecisionRejected(404, ["unknown run"])
+        r = runs[run_id]
+        s = r.session
+        with r.lock:
+            if r.status != "waiting_approval" or r.pending_case != case_id:
+                raise DecisionRejected(409, ["this case is not waiting for a decision"])
+            if decision == "skip":
+                s.skip(case_id)
+                payload = Command(resume={"decisions": [{"type": "reject", "message": "The owner chose to skip this case."}]})
+            else:
+                if decision == "edit":
+                    if not body:
+                        raise DecisionRejected(422, ["edit needs the new text"])
+                    errors = s.save_draft(case_id, body, s.disputes[case_id].cited_evidence_ids)
+                    if errors:
+                        raise DecisionRejected(422, errors)   # edits face the same checks as the agent's drafts
+                s.approve(case_id)
+                payload = Command(resume={"decisions": [{"type": "approve"}]})
+            start_thread(r, payload)
+        bridge.decided_elsewhere(run_id, case_id)
+
+    def record_outcome_for(run_id: str, case_id: str, result: str, cents: int) -> None:
+        s = get_run(run_id).session
+        build_tools(s)["record_outcome"].invoke({"case_id": case_id, "result": result, "recovered_cents": cents, "lesson": ""})
+
+    bridge.decide, bridge.outcome = apply_decision, record_outcome_for
 
     @app.get("/api/health")
     def health():
@@ -215,25 +271,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/api/runs/{run_id}/cases/{case_id}/decision", status_code=202)
     def decide(run_id: str, case_id: str, dec: Decision):
-        r = get_run(run_id)
-        s = r.session
-        with r.lock:
-            if r.status != "waiting_approval" or r.pending_case != case_id:
-                raise HTTPException(409, "this case is not waiting for a decision")
-            if dec.decision == "skip":
-                s.skip(case_id)
-                payload = Command(resume={"decisions": [{"type": "reject", "message": "The owner chose to skip this case."}]})
-            else:
-                if dec.decision == "edit":
-                    if not dec.body:
-                        raise HTTPException(422, "edit needs the new text")
-                    errors = s.save_draft(case_id, dec.body, s.disputes[case_id].cited_evidence_ids)
-                    if errors:
-                        raise HTTPException(422, {"errors": errors})   # edits face the same checks as the agent's drafts
-                s.approve(case_id)
-                payload = Command(resume={"decisions": [{"type": "approve"}]})
-            start_thread(r, payload)
+        get_run(run_id)
+        try:
+            apply_decision(run_id, case_id, dec.decision, dec.body)
+        except DecisionRejected as e:
+            raise HTTPException(e.status, {"errors": e.errors} if e.status == 422 else e.errors[0])
         return {"ok": True}
+
+    @app.get("/api/photon")
+    def photon_state():
+        return bridge.snapshot()
+
+    @app.post("/api/photon/inbound")
+    def photon_inbound(m: Inbound, x_reclaim_secret: str | None = Header(default=None)):
+        """A text from the owner's phone (simulator or a Photon sidecar). Non-owner senders are ignored."""
+        secret = os.getenv("PHOTON_INBOUND_SECRET")
+        if secret and x_reclaim_secret != secret:
+            raise HTTPException(401, "bad secret")
+        return {"reply": bridge.handle_inbound(m.sender, m.text)}
 
     @app.post("/api/runs/{run_id}/cases/{case_id}/outcome")
     def outcome(run_id: str, case_id: str, o: OutcomeIn):

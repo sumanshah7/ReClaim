@@ -13,6 +13,9 @@ export type CaseDetail = CaseRow & {
   ticket: { order_id: string; items: string[]; image_url: string } | null;
 };
 
+export type PhoneMsg = { direction: "in" | "out"; text: string; at: string; note: string };
+export type PhoneState = { mode: string; owner: string; pending: [string, string] | null; messages: PhoneMsg[] };
+
 export type Sample = { file: string; label: string; platform: string; note: string };
 
 export type Hero = {
@@ -47,5 +50,8 @@ export const api = {
   outcome: (id: string, caseId: string, o: { result: "won" | "lost"; recovered_cents: number; lesson: string }) =>
     fetch(`/api/runs/${id}/cases/${encodeURIComponent(caseId)}/outcome`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(o) }).then(j<{ ok: boolean }>),
   health: () => fetch("/api/health").then(j<{ ok: boolean; llm_mode: string; tracing?: { enabled: boolean; project: string; note: string | null } }>),
+  phone: () => fetch("/api/photon").then(j<PhoneState>),
+  phoneSend: (sender: string, text: string) =>
+    fetch("/api/photon/inbound", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sender, text }) }).then(j<{ reply: string | null }>),
   memory: () => fetch("/api/memory").then(j<{ outcomes: number; lessons: string }>),
 };
