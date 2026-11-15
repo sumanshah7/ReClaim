@@ -5,10 +5,13 @@ import asyncio
 import hashlib
 import json
 import os
+import re
+import sys
 import threading
+import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Callable, Literal
 
@@ -24,7 +27,8 @@ from ..agent.graph import build_agent
 from ..agent.session import Session
 from ..agent.tools import _case_view, build_tools
 from ..ingest.normalize import load_payout as parse_payout
-from ..llm import CacheMiss, make_model
+from ..codewatch import PACKAGE_DIR, CodeWatch
+from ..llm import CacheMiss, MissingApiKey, make_model, require_api_key, resolved_mode
 from ..photon.bridge import DEMO_OWNER, Bridge, DecisionRejected, WebhookTransport
 from ..schemas import AgentEventType, CaseStatus
 from ..triage.memory import Memory, signature_of
@@ -37,10 +41,55 @@ ROOT = Path(__file__).resolve().parents[3]
 @dataclass
 class Settings:
     fixtures: Path = ROOT / "fixtures"
-    data: Path = ROOT / "data"           # persistent: sqlite memory, AGENTS.md lessons, checkpoints, uploads
-    cases: Path = ROOT / "cases"
+    data: Path = Path(os.getenv("RECLAIM_DATA_DIR") or ROOT / "data")   # sqlite memory, lessons, checkpoints, uploads
+    cases: Path = Path(os.getenv("RECLAIM_CASES_DIR") or ROOT / "cases")
     today: date = date(2026, 11, 14)     # fixed so the offline demo is reproducible
     model_factory: Callable | None = None
+    # Code-change guard. None = off unless RECLAIM_RESTART_ON_CODE_CHANGE=1 (set by `make api`).
+    watch_dirs: list[Path] | None = None
+    restart_hook: Callable[[], None] | None = None     # default: re-exec this process so it loads the new code
+    watch_interval: float = 1.0
+
+
+CODE_CHANGED_MSG = ("The backend code changed while this run was in progress, so the run was stopped instead of "
+                    "continuing on old code. A fresh run is starting on the new code.")
+
+
+def _reexec() -> None:
+    """Replace this process with a fresh one running the same command (same effect as uvicorn --reload)."""
+    time.sleep(0.4)                                    # let in-flight responses reach the browser first
+    sys.stdout.flush(); sys.stderr.flush()
+    os.execv(sys.executable, [sys.executable, *sys.orig_argv[1:]])
+
+
+_SECRET = re.compile(r"sk-[A-Za-z0-9_\-]{8,}")
+
+
+def explain_model_error(e: BaseException) -> tuple[str, str]:
+    """A plain-English reason for a failed model call, with any API key redacted. Walks the exception chain because
+    LangChain wraps the provider's error."""
+    chain, cur = [], e
+    while cur is not None and len(chain) < 6:
+        chain.append(type(cur).__name__)
+        cur = cur.__cause__ or cur.__context__
+    names = " ".join(chain)
+    if "Authentication" in names or "PermissionDenied" in names:
+        kind, msg = "auth", "The Anthropic API key was rejected. Check ANTHROPIC_API_KEY in .env. Nothing was sent."
+    elif "Timeout" in names:
+        kind, msg = "timeout", "The model did not respond in time. Nothing was sent. Start the run again."
+    elif "Connection" in names:
+        kind, msg = "network", "Could not reach the Anthropic API. Check the network connection. Nothing was sent."
+    elif "RateLimit" in names:
+        kind, msg = "rate_limit", "The model is rate-limited right now. Wait a moment and start the run again."
+    elif "Overloaded" in names or "InternalServer" in names or "ServiceUnavailable" in names:
+        kind, msg = "provider", "The model service had a problem. Start the run again in a minute."
+    else:
+        kind, msg = type(e).__name__, str(e)
+    msg = _SECRET.sub("[redacted key]", msg)
+    key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+    if key:
+        msg = msg.replace(key, "[redacted key]")
+    return kind, msg[:500]
 
 
 def _memory_view(s, c) -> dict | None:
@@ -67,9 +116,13 @@ class Run:
     session: Session
     agent: object
     config: dict
-    status: str = "running"              # running | waiting_approval | done | error
+    status: str = "running"              # running | waiting_approval | done | error | stopped
     pending_case: str | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
+    source: dict = field(default_factory=dict)   # what started it (fixture or upload id), to re-launch after a restart
+    cancelled: bool = False
+    queue: list = field(default_factory=list)       # cases the paused graph is waiting on (a model may ask to send several at once)
+    collected: list = field(default_factory=list)   # the owner's decisions so far for that batch, in queue order
 
 
 class StartRun(BaseModel):
@@ -97,10 +150,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     load_env()
     trace_note = tracing.ensure_consistent()
     cfg = settings or Settings()
+    if cfg.model_factory is None:
+        require_api_key(resolved_mode())   # explicit live/record mode without a key stops here with a clear message
+    boot_id = uuid.uuid4().hex[:8]
     cfg.data.mkdir(parents=True, exist_ok=True)
     (cfg.data / "uploads").mkdir(exist_ok=True)
     memory = Memory(cfg.data / "reclaim.db")   # shared across runs: this is the persistent memory
     runs: dict[str, Run] = {}
+    replaced: dict[str, str | None] = {}   # runs stopped by a code change in the previous process -> their fresh run
+    dirs = cfg.watch_dirs
+    if dirs is None and os.getenv("RECLAIM_RESTART_ON_CODE_CHANGE", "").lower() in ("1", "true", "yes"):
+        dirs = [Path(p) for p in os.getenv("RECLAIM_WATCH_DIRS", "").split(os.pathsep) if p] or [PACKAGE_DIR]
+    watch = CodeWatch(dirs) if dirs else None
+    restart_hook = cfg.restart_hook or _reexec
+    watch_state = {"handled": False, "last": 0.0}
+    watch_lock = threading.Lock()
     hook = os.getenv("PHOTON_BRIDGE_URL")
     bridge = Bridge(transport=WebhookTransport(hook) if hook else Bridge().transport,
                     owner=(os.getenv("OWNER_PHONE") or DEMO_OWNER) if hook else DEMO_OWNER)
@@ -120,6 +184,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         interrupt, last_text = None, ""
         try:
             for chunk in run.agent.stream(payload, run.config, stream_mode="updates"):
+                if run.cancelled:      # the code changed: stop here, touch nothing further
+                    return
                 for node, upd in chunk.items():
                     if node == "__interrupt__":
                         interrupt = upd[0].value
@@ -127,24 +193,78 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     msgs = upd.get("messages") if isinstance(upd, dict) else None
                     for m in (msgs if isinstance(msgs, list) else []):
                         last_text = _emit_agent_events(s, m) or last_text
+            if run.cancelled:
+                return
             if interrupt:
-                req = interrupt["action_requests"][0]
-                run.pending_case = req["args"]["case_id"]
-                s.emit(AgentEventType.INTERRUPT, {"case_id": run.pending_case, "tool": req["name"],
+                reqs = interrupt["action_requests"]    # normally one; a model can ask to send several in one turn
+                run.queue = [r["args"]["case_id"] for r in reqs]
+                run.collected = []
+                run.pending_case = run.queue[0]
+                s.emit(AgentEventType.INTERRUPT, {"case_id": run.pending_case, "tool": reqs[0]["name"],
                                                   "message": "Waiting for the owner to approve, edit or skip."})
-                run.status = "waiting_approval"   # status flips after its event is visible
-                _notify(run)
+                if _set_status(run, "waiting_approval"):   # status flips after its event is visible
+                    _notify(run)
             else:
                 run.pending_case = None
                 s.emit(AgentEventType.DONE, {"summary": last_text})
-                run.status = "done"
-                _notify_done(run)
+                if _set_status(run, "done"):
+                    _notify_done(run)
         except CacheMiss as e:
-            s.emit(AgentEventType.ERROR, {"kind": "cache_miss", "message": str(e)})
-            run.status = "error"
+            if not run.cancelled:
+                s.emit(AgentEventType.ERROR, {"kind": "cache_miss", "message": str(e)})
+                _set_status(run, "error")
         except Exception as e:  # surfaced to the UI's designed error state, never swallowed
-            s.emit(AgentEventType.ERROR, {"kind": type(e).__name__, "message": str(e)[:500]})
-            run.status = "error"
+            if not run.cancelled:
+                kind, message = explain_model_error(e)
+                s.emit(AgentEventType.ERROR, {"kind": kind, "message": message})
+                _set_status(run, "error")
+
+    def _set_status(run: Run, status: str) -> bool:
+        """Change status unless the run was cancelled meanwhile (a stopped run must stay stopped)."""
+        with run.lock:
+            if run.cancelled:
+                return False
+            run.status = status
+            return True
+
+    def stop_run(run: Run, reason: str) -> bool:
+        with run.lock:
+            if run.status not in ("running", "waiting_approval"):
+                return False
+            run.cancelled = True
+            run.status = "stopped"
+            stale = run.pending_case
+            run.pending_case = None
+        run.session.emit(AgentEventType.ERROR, {"kind": "code_changed", "message": reason})
+        if stale:
+            bridge.decided_elsewhere(run.id, stale)
+        return True
+
+    def check_code() -> None:
+        """If the source changed since start: stop every active run, remember what to re-launch, and restart."""
+        if watch is None:
+            return
+        with watch_lock:
+            now = time.monotonic()
+            if watch_state["handled"] or now - watch_state["last"] < 0.3:
+                return
+            watch_state["last"] = now
+            if not watch.changed():
+                return
+            watch_state["handled"] = True
+        active = [r for r in list(runs.values()) if stop_run(r, CODE_CHANGED_MSG)]
+        if active:
+            (cfg.data / "restart_pending.json").write_text(json.dumps({
+                "at": datetime.now().isoformat(timespec="seconds"),
+                "runs": [{"old_id": r.id, "source": r.source} for r in active]}))
+        threading.Thread(target=restart_hook, daemon=True).start()
+
+    if watch is not None:
+        def _watch_loop() -> None:
+            while not watch_state["handled"]:
+                time.sleep(cfg.watch_interval)
+                check_code()
+        threading.Thread(target=_watch_loop, daemon=True).start()
 
     def start_thread(run: Run, payload) -> None:
         run.status = "running"
@@ -172,11 +292,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         r = runs[run_id]
         s = r.session
         with r.lock:
+            if r.status == "stopped":
+                raise DecisionRejected(409, ["this run was stopped because the code changed; a fresh run is starting"])
             if r.status != "waiting_approval" or r.pending_case != case_id:
                 raise DecisionRejected(409, ["this case is not waiting for a decision"])
             if decision == "skip":
                 s.skip(case_id)
-                payload = Command(resume={"decisions": [{"type": "reject", "message": "The owner chose to skip this case."}]})
+                entry = {"type": "reject", "message": "The owner chose to skip this case."}
             else:
                 if decision == "edit":
                     if not body:
@@ -185,9 +307,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     if errors:
                         raise DecisionRejected(422, errors)   # edits face the same checks as the agent's drafts
                 s.approve(case_id)
-                payload = Command(resume={"decisions": [{"type": "approve"}]})
-            start_thread(r, payload)
+                entry = {"type": "approve"}
+            r.collected.append(entry)
+            r.queue = r.queue[1:]
+            more = bool(r.queue)
+            if more:       # the model asked to send several at once: decide each in turn, send nothing until all are decided
+                r.pending_case = r.queue[0]
+                s.emit(AgentEventType.INTERRUPT, {"case_id": r.pending_case, "tool": "send_dispute",
+                                                  "message": "Waiting for the owner to approve, edit or skip."})
+            else:
+                decisions, r.collected = r.collected, []
+                start_thread(r, Command(resume={"decisions": decisions}))
         bridge.decided_elsewhere(run_id, case_id)
+        if more:
+            _notify(r)
 
     def record_outcome_for(run_id: str, case_id: str, result: str, cents: int) -> None:
         s = get_run(run_id).session
@@ -199,7 +332,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def health():
         mode = "scripted" if cfg.model_factory is not None else (
             os.getenv("RECLAIM_LLM_MODE") or ("auto" if os.getenv("ANTHROPIC_API_KEY") else "replay"))
-        return {"ok": True, "llm_mode": mode, "tracing": tracing.status(trace_note)}
+        return {"ok": True, "llm_mode": mode, "tracing": tracing.status(trace_note), "boot_id": boot_id,
+                "code_watch": watch is not None, "api_key": "present" if (os.getenv("ANTHROPIC_API_KEY") or "").strip() else "missing"}
 
     @app.get("/api/fixtures")
     def fixtures():
@@ -222,6 +356,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/api/runs", status_code=202)
     def start(req: StartRun):
+        return {"run_id": launch(req)}
+
+    def launch(req: StartRun) -> str:
         if req.upload_id:
             path = cfg.data / "uploads" / f"{Path(req.upload_id).name}.csv"
             path = _matching_sample(path, cfg.fixtures) or path
@@ -239,19 +376,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             detail = parsed.errors[0] if parsed.errors else "no refund deductions found"
             raise HTTPException(422, f"no refund deductions found in this report ({detail})")
         run_id = uuid.uuid4().hex[:10]
-        session = Session(cfg.cases / run_id, cfg.fixtures / "tickets.json", cfg.today, memory=memory,
-                          memory_dir=cfg.data / "memory")
-        model = cfg.model_factory() if cfg.model_factory else make_model(cfg.fixtures / "llm_cache")
+        try:
+            session = Session(cfg.cases / run_id, cfg.fixtures / "tickets.json", cfg.today, memory=memory,
+                              memory_dir=cfg.data / "memory")
+        except ValueError as e:          # unreadable ticket data: say so instead of a bare 500
+            raise HTTPException(503, f"Order ticket data is unavailable: {e}")
+        try:
+            model = cfg.model_factory() if cfg.model_factory else make_model(cfg.fixtures / "llm_cache")
+        except MissingApiKey as e:
+            raise HTTPException(503, str(e))
         agent = build_agent(session, model, cfg.data / "checkpoints.db")
         mode = "scripted" if cfg.model_factory is not None else getattr(model, "mode", "live")
         run = Run(run_id, session, agent, {"configurable": {"thread_id": run_id}, "recursion_limit": 100,
                                            **tracing.run_config(run_id, mode, "upload" if req.upload_id else "synthetic-sample")})
+        run.source = req.model_dump(exclude_none=True)
         runs[run_id] = run
         start_thread(run, {"messages": [("user", f"Process the payout file at {path}.")]})
-        return {"run_id": run_id}
+        return run_id
 
     @app.get("/api/runs/{run_id}")
     def run_state(run_id: str):
+        check_code()
+        if run_id in replaced and run_id not in runs:    # stopped by a code change; the new process knows its successor
+            return {"run_id": run_id, "status": "stopped", "pending_case": None, "replaced_by": replaced[run_id],
+                    "hero": {"recoverable_cents": 0, "gross_cents": 0, "workable_cases": 0, "next_deadline": None,
+                             "next_deadline_days": None}}
         r = get_run(run_id)
         return {"run_id": r.id, "status": r.status, "pending_case": r.pending_case,
                 "hero": r.session.hero().model_dump(mode="json")}
@@ -271,7 +420,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 for e in r.session.events_since(i):
                     i += 1
                     yield f"id: {i}\ndata: {json.dumps(e.model_dump(mode='json'))}\n\n"
-                if r.status in ("done", "error") and not r.session.events_since(i):
+                if r.status in ("done", "error", "stopped") and not r.session.events_since(i):
                     yield "event: end\ndata: {}\n\n"
                     return
                 await asyncio.sleep(0.15)
@@ -319,8 +468,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/tickets/{name}")
     def ticket_image(name: str):
         p = cfg.fixtures / "tickets" / Path(name).name
-        if not p.exists():
+        if not p.is_file():
             raise HTTPException(404, "no ticket image")
+        with open(p, "rb") as fh:       # a damaged file must not reach the browser as a broken <img>
+            head = fh.read(8)
+        if not (head.startswith(b"\x89PNG\r\n\x1a\n") or head.startswith(b"\xff\xd8\xff")):
+            raise HTTPException(404, "this ticket image is damaged or not a PNG/JPEG")
         return FileResponse(p)
 
     @app.post("/api/runs/{run_id}/cases/{case_id}/decision", status_code=202)
@@ -357,6 +510,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def memory_view():
         lessons = cfg.data / "memory" / "AGENTS.md"
         return {"outcomes": memory.resolved_count(), "pending": memory.count() - memory.resolved_count(), "lessons": lessons.read_text() if lessons.exists() else ""}
+
+    marker = cfg.data / "restart_pending.json"
+    if marker.exists():     # the previous process stopped these runs because the code changed: start them fresh
+        try:
+            info = json.loads(marker.read_text())
+        except ValueError:
+            info = {"runs": []}
+        marker.unlink(missing_ok=True)
+        for item in info.get("runs", []):
+            try:
+                replaced[item["old_id"]] = launch(StartRun(**item["source"]))
+            except Exception:                        # noqa: BLE001 - the old run stays "stopped" with no successor
+                replaced[item["old_id"]] = None
 
     return app
 

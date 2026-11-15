@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
+import unicodedata
 from datetime import timedelta
 from pathlib import Path
 
@@ -12,13 +14,44 @@ MAX_HANDOFF_GAP = timedelta(minutes=30)
 MIN_EXTRACTION_CONFIDENCE = 0.6
 
 
+log = logging.getLogger(__name__)
+
+
 def load_tickets(path: str | Path) -> dict[str, Ticket]:
-    data = json.loads(Path(path).read_text())
-    return {t["order_id"]: Ticket(**t) for t in data}
+    """A damaged file is a clear error. A damaged entry only costs that one order its ticket (it is then reported as
+    'no ticket on file'), never the whole run."""
+    try:
+        data = json.loads(Path(path).read_text())
+        if not isinstance(data, list):
+            raise ValueError("expected a list of tickets")
+    except (OSError, ValueError) as e:      # JSONDecodeError is a ValueError
+        raise ValueError(f"the tickets file could not be read ({type(e).__name__}: {str(e)[:120]})") from e
+    out: dict[str, Ticket] = {}
+    for entry in data:
+        try:
+            t = Ticket(**entry)
+            out[t.order_id] = t
+        except Exception as e:  # noqa: BLE001 - pydantic and type errors alike
+            log.warning("skipping unreadable ticket entry %r: %s", (entry or {}).get("order_id") if isinstance(entry, dict) else entry, e)
+    return out
 
 
 def _norm(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()
+    """Case-, accent- and punctuation-insensitive form of an item name. Works for any script: accents are folded only
+    on Latin letters, so non-Latin names (for example Devanagari) keep their letters instead of collapsing to ''."""
+    s = unicodedata.normalize("NFKC", s).casefold()
+    out: list[str] = []
+    for ch in unicodedata.normalize("NFKD", s):
+        if unicodedata.combining(ch) and out and out[-1].isascii():
+            continue
+        out.append(ch)
+    return re.sub(r"[\W_]+", " ", unicodedata.normalize("NFC", "".join(out))).strip()
+
+
+def _related(claimed: str, listed: str) -> bool:
+    """One name's words are all inside the other ('Chicken Momo' vs 'Chicken Momo (Steamed)')."""
+    a, b = set(claimed.split()), set(listed.split())
+    return bool(a and b) and (a <= b or b <= a)
 
 
 def check_ticket_vs_claim(d: Deduction, ticket: Ticket | None) -> Evidence:
@@ -35,7 +68,18 @@ def check_ticket_vs_claim(d: Deduction, ticket: Ticket | None) -> Evidence:
         return Evidence(id=f"{d.order_id}:claim_unspecified", kind=EvidenceKind.MISSING_ARTIFACT,
                         summary="The refund does not name a specific item to compare against the ticket.",
                         source_ref=f"payout_row:{d.source_row}", supports=0, strength=0.0)
-    listed = any(_norm(d.claimed_item) == _norm(i) for i in ticket.items)
+    claimed = _norm(d.claimed_item)
+    if not claimed:      # nothing comparable (for example an emoji-only name): do not match it against anything
+        return Evidence(id=f"{d.order_id}:claim_unspecified", kind=EvidenceKind.MISSING_ARTIFACT,
+                        summary="The refund does not name a specific item to compare against the ticket.",
+                        source_ref=f"payout_row:{d.source_row}", supports=0, strength=0.0)
+    listed = any(claimed == _norm(i) for i in ticket.items)
+    similar = next((i for i in ticket.items if _norm(i) and _related(claimed, _norm(i))), None)
+    if not listed and similar:   # partial match: say so and stay neutral rather than assert an omission
+        return Evidence(id=f"{d.order_id}:{EvidenceKind.TICKET_LISTS_ITEM.value}", kind=EvidenceKind.TICKET_LISTS_ITEM,
+                        summary=(f"The ticket for order {d.order_id} lists a similar item ('{similar}'), so the claimed "
+                                 f"'{d.claimed_item}' cannot be matched exactly."),
+                        source_ref=ref, supports=0, strength=0.2)
     if listed:
         return Evidence(id=f"{d.order_id}:{EvidenceKind.TICKET_LISTS_ITEM.value}", kind=EvidenceKind.TICKET_LISTS_ITEM,
                         summary=f"The ticket for order {d.order_id} lists '{d.claimed_item}'.",

@@ -61,10 +61,11 @@ def main() -> int:
             c = TestClient(create_app(Settings(data=tmp / "data", cases=tmp / "cases", today=date(2026, 11, 14))))
             run = c.post("/api/runs", json={"fixture": f}).json()["run_id"]
             decided = []
-            for d in decisions:
+            for i in range(20):          # however many prompts there are; the last decision repeats for the rest
                 st = wait(c, run, {"waiting_approval", "done", "error"})
                 if st["status"] != "waiting_approval":
                     break
+                d = decisions[min(i, len(decisions) - 1)]
                 decided.append(d)
                 c.post(f"/api/runs/{run}/cases/{st['pending_case']}/decision", json={"decision": d})
             st = wait(c, run, {"done", "error"})

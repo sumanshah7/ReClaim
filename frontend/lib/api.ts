@@ -33,13 +33,16 @@ export type Hero = {
 // Event payloads differ per event type and are produced by our own backend; the UI reads only known keys.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AgentEvent = { id: number; ts: string; type: string; payload: Record<string, any> };
-export type RunState = { run_id: string; status: "running" | "waiting_approval" | "done" | "error"; pending_case: string | null; hero: Hero };
+export type RunState = {
+  run_id: string; status: "running" | "waiting_approval" | "done" | "error" | "stopped"; pending_case: string | null; hero: Hero;
+  replaced_by?: string | null;   // set when the backend restarted on new code and re-launched this run
+};
 
 async function j<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let msg = res.statusText;
     try { const b = await res.json(); msg = typeof b.detail === "string" ? b.detail : JSON.stringify(b.detail ?? b); } catch {}
-    throw new Error(msg);
+    throw Object.assign(new Error(msg), { status: res.status });
   }
   return res.json();
 }

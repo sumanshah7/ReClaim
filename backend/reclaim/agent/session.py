@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 from datetime import date, datetime
 from pathlib import Path
@@ -22,6 +23,13 @@ LESSONS_HEADER = (
     "Each line is a takeaway from a resolved case. Use them when weighing similar cases. "
     "They are history, not guarantees.\n\n"
 )
+
+
+def atomic_write(path: Path, text: str) -> None:
+    """Write via a temp file and rename, so a crash mid-write leaves the old file intact, never a half-written one."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
 
 
 def safe_id(case_id: str) -> str:
@@ -81,7 +89,10 @@ class Session:
 
     def ingest(self, deductions: list[Deduction]) -> list[Case]:
         known = {d.id for d in self.deductions}
-        self.deductions += [d for d in deductions if d.id not in known]
+        for d in deductions:           # one deduction per case id, even inside a single batch
+            if d.id not in known:
+                known.add(d.id)
+                self.deductions.append(d)
         for c in triage(self.deductions, self.today, history_fn=lambda p: self.history(p)):
             old = self.cases.get(c.id)
             self.cases[c.id] = c if old is None else old
@@ -129,8 +140,8 @@ class Session:
     def persist(self, case_id: str) -> None:
         c = self.get(case_id)
         d = self.case_dir(case_id)
-        (d / "case.json").write_text(c.model_dump_json(indent=2))
-        (d / "evidence.json").write_text(json.dumps([e.model_dump(mode="json") for e in c.evidence], indent=2))
+        atomic_write(d / "case.json", c.model_dump_json(indent=2))
+        atomic_write(d / "evidence.json", json.dumps([e.model_dump(mode="json") for e in c.evidence], indent=2))
 
     def trace(self, case_id: str, record: dict) -> None:
         with open(self.case_dir(case_id) / "trace.jsonl", "a") as fh:
@@ -139,7 +150,8 @@ class Session:
     # ---- drafting and approval (rules 1, 2, 4) -------------------------------------------
     def validate_draft(self, case_id: str, body: str, cited: list[str]) -> list[str]:
         c = self.get(case_id)
-        errors = lint_dispute(body)
+        t = self.tickets.get(c.deduction.order_id)
+        errors = lint_dispute(body, ignore=[c.deduction.claimed_item or "", *(t.items if t else [])])
         ids = {e.id for e in c.evidence}
         supports = {e.id for e in c.evidence if e.supports >= 1}
         if c.recommend_skip:
@@ -159,7 +171,7 @@ class Session:
             self.draft_failures[case_id] = self.draft_failures.get(case_id, 0) + 1
             return errors
         self.disputes[case_id] = Dispute(case_id=case_id, body=body, cited_evidence_ids=cited, lint_passed=True)
-        (self.case_dir(case_id) / "draft.md").write_text(body)
+        atomic_write(self.case_dir(case_id) / "draft.md", body)
         self.cases[case_id] = self.get(case_id).model_copy(update={"status": CaseStatus.AWAITING_APPROVAL})
         self.persist(case_id)
         self.emit(AgentEventType.TODO_UPDATE, {"case_id": case_id, "status": "drafted"})
@@ -179,8 +191,8 @@ class Session:
         self.persist(case_id)
 
     def _decision(self, case_id: str, what: str) -> None:
-        (self.case_dir(case_id) / "decision.json").write_text(
-            json.dumps({"case_id": case_id, "decision": what, "at": self.clock().isoformat()}, indent=2))
+        atomic_write(self.case_dir(case_id) / "decision.json",
+                     json.dumps({"case_id": case_id, "decision": what, "at": self.clock().isoformat()}, indent=2))
 
     def record_outcome(self, o: Outcome) -> None:
         self.memory.record(o)

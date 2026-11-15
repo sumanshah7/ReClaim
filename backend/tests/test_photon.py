@@ -90,6 +90,7 @@ def test_outcome_by_text_feeds_memory(client):
     run = start(client)
     wait(client, run, "waiting_approval")
     text(client, "YES")
+    wait(client, run, "waiting_approval")                # let the send finish (it writes the pending row) before WON
     before = client.get("/api/memory").json()["outcomes"]
     assert "Recorded" in text(client, "WON 25.00")
     assert client.get("/api/memory").json()["outcomes"] == before + 1

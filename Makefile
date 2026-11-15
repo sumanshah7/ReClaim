@@ -20,9 +20,11 @@ LLM_MODE ?= replay
 API_PORT ?= 8100
 WEB_PORT ?= 3100
 
+# RECLAIM_RESTART_ON_CODE_CHANGE=1: if backend source or prompts change while the server runs, active runs are stopped
+# cleanly, the server restarts on the new code, and each interrupted run is relaunched fresh (no stale-code runs).
 # Offline replay by default. `make api LLM_MODE=scripted` uses the dev-only scripted model (UI work, no key needed).
 api:
-	cd backend && RECLAIM_LLM_MODE=$(LLM_MODE) .venv/bin/uvicorn reclaim.api.main:create_app --factory --port $(API_PORT)
+	cd backend && RECLAIM_LLM_MODE=$(LLM_MODE) RECLAIM_RESTART_ON_CODE_CHANGE=1 .venv/bin/uvicorn reclaim.api.main:create_app --factory --port $(API_PORT)
 
 web:
 	cd frontend && RECLAIM_API=http://127.0.0.1:$(API_PORT) npm run dev -- --port $(WEB_PORT)

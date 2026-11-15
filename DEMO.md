@@ -1,7 +1,7 @@
 # Demo script (about 3 minutes)
 
 Sample: **Chutney, Montclair NJ (synthetic)**, DoorDash. Backup sample: Demo Bowl Shop.
-Numbers below come from the recorded run: $98.08 expected of $149.20 deducted, 7 workable cases, nearest deadline in 10 days.
+Numbers below come from the recorded run: $95.30 expected of $149.20 deducted, 7 workable cases, nearest deadline in 10 days.
 
 ## Before you go on (2 minutes)
 
@@ -17,7 +17,7 @@ Decision paths that are recorded: approve the first dispute then skip the rest, 
 
 **1. Hook (20s).** "A customer says an item was missing and the platform just takes the money back. A chain has a finance team to fight that. An independent owner has a CSV and a drawer of tickets, so they eat it. Reclaim is for that owner. The data here is synthetic, modeled on a momo menu, and the owner approves everything."
 
-**2. Drop in the payout (15s).** Choose the Chutney sample. The counter animates to **$98.08 recoverable this week** and the nearest deadline. Say: "estimates, not guarantees".
+**2. Drop in the payout (15s).** Choose the Chutney sample. The counter animates to **$95.30 recoverable this week** and the nearest deadline. Say: "estimates, not guarantees".
 
 **3. Plan streams (25s).** Point at the agent panel: the plan, ordered by expected value. "Deterministic code scored these. The model never does the money math."
 

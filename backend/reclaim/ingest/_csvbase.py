@@ -21,6 +21,7 @@ def parse_payout_csv(
     to the platform's header names."""
     res = ParseResult()
     seen: set[tuple] = set()
+    seen_orders: set[str] = set()
     with open(path, newline="", encoding="utf-8-sig") as fh:
         reader = csv.DictReader(fh)
         missing = [c for c in required if c not in (reader.fieldnames or [])]
@@ -38,6 +39,11 @@ def parse_payout_csv(
                     res.errors.append(f"row {i}: duplicate of an earlier row, ignored")
                     continue
                 seen.add(key)
+                if row[cols["order_id"]] in seen_orders:   # case ids are platform:order_id; one case per order
+                    res.errors.append(f"row {i}: order {row[cols['order_id']]} already has a refund in this report; "
+                                      "the first one is used, review this one by hand")
+                    continue
+                seen_orders.add(row[cols["order_id"]])
                 pickup_raw = row.get(cols["pickup_ts"], "").strip()
                 item = row.get(cols["item"], "").strip() or None
                 res.deductions.append(

@@ -49,17 +49,21 @@ def main():
     agent = build_agent(s, model, work / "ckpt.db")
     cfg = {"configurable": {"thread_id": "record"}, "recursion_limit": 100, **tracing.run_config("record", "record", "synthetic-sample")}
     res = agent.invoke({"messages": [("user", f"Process the payout file at {ROOT / 'fixtures' / a.payout}.")]}, cfg)
-    for d in a.decisions.split(","):
-        if not res.get("__interrupt__"):
-            break
-        cid = res["__interrupt__"][0].value["action_requests"][0]["args"]["case_id"]
-        print("approval prompt for", cid, "->", d)
-        if d == "approve":
-            s.approve(cid)
-            res = agent.invoke(Command(resume={"decisions": [{"type": "approve"}]}), cfg)
-        else:
-            s.skip(cid)
-            res = agent.invoke(Command(resume={"decisions": [{"type": "reject", "message": "The owner chose to skip this case."}]}), cfg)
+    todo = a.decisions.split(",")        # "approve,skip": approve the first, then skip however many more there are
+    while res.get("__interrupt__"):
+        reqs = res["__interrupt__"][0].value["action_requests"]    # one per hanging send; the model may ask for several
+        decisions = []
+        for req in reqs:
+            d = todo.pop(0) if len(todo) > 1 else todo[0]   # extra prompts repeat the last decision
+            cid = req["args"]["case_id"]
+            print("approval prompt for", cid, "->", d)
+            if d == "approve":
+                s.approve(cid)
+                decisions.append({"type": "approve"})
+            else:
+                s.skip(cid)
+                decisions.append({"type": "reject", "message": "The owner chose to skip this case."})
+        res = agent.invoke(Command(resume={"decisions": decisions}), cfg)
     from reclaim import llm
     u = llm.USAGE
     print(f"live calls this run: {u['calls']}  input={u['input']} (cache_read={u['cache_read']} cache_write={u['cache_creation']}) output={u['output']}")

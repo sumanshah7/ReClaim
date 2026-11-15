@@ -141,14 +141,14 @@ export function AgentPanel({ events, state }: { events: AgentEvent[]; state: Run
     el.scrollTo({ top: el.scrollHeight, behavior: calm ? "auto" : "smooth" });
   }, [log.length]);
   const status = state?.status ?? "running";
-  const label = { running: "Working", waiting_approval: "Waiting for you", done: "Finished", error: "Stopped" }[status];
+  const label = { running: "Working", waiting_approval: "Waiting for you", done: "Finished", error: "Stopped", stopped: "Restarting on new code" }[status];
 
   return (
     <aside aria-label="Live agent activity" className="flex min-h-0 flex-col rounded-xl bg-card hairline">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <div className="flex items-center gap-3"><h2 className="eyebrow">Agent</h2><HowItWorks /></div>
         <span className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className={cn("size-2 rounded-full", status === "running" ? "live-dot bg-money" : status === "waiting_approval" ? "bg-money" : status === "error" ? "bg-danger" : "bg-muted-foreground")} aria-hidden />{label}
+          <span className={cn("size-2 rounded-full", status === "running" ? "live-dot bg-money" : status === "waiting_approval" ? "bg-money" : status === "error" ? "bg-danger" : status === "stopped" ? "live-dot bg-caution" : "bg-muted-foreground")} aria-hidden />{label}
         </span>
       </div>
       <div className="flex min-h-0 flex-1 flex-col" aria-live="polite">

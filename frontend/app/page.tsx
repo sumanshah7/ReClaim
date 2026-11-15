@@ -39,7 +39,7 @@ export default function Page() {
   const cur = run.cases.find((c) => c.case_id === selected);
   const version = `${cur?.status}|${cur?.evidence.length}|${cur?.p_win_bp}`;
   const { detail, loading } = useCaseDetail(run.runId, selected, version);
-  const errEvent = useMemo(() => [...run.events].reverse().find((e) => e.type === "error"), [run.events]);
+  const errEvent = useMemo(() => [...run.events].reverse().find((e) => e.type === "error" && e.payload.kind !== "code_changed"), [run.events]);   // a code change is handled by switching to the fresh run
 
   return (
     <MotionConfig reducedMotion="user">

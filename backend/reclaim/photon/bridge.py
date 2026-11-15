@@ -180,7 +180,8 @@ class Bridge:
                 self.pending = None
                 return "That one was already handled in the app."
             return "I did not send it: " + "; ".join(e.errors) + " Reply EDIT with new wording, or NO to skip."
-        self.pending = None
+        if self.pending == (run_id, case_id):     # the gate may already have queued a prompt for the next case
+            self.pending = None
         if r.kind == "skip":
             return "Skipped. Nothing was sent."
         self.awaiting_outcome.append((run_id, case_id))

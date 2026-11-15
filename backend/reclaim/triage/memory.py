@@ -23,7 +23,7 @@ def signature_of(evidence: list[Evidence]) -> str:
 
 class Memory:
     def __init__(self, path: str | Path = ":memory:"):
-        self.db = sqlite3.connect(str(path), check_same_thread=False)
+        self.db = sqlite3.connect(str(path), check_same_thread=False, timeout=30)   # wait out another writer
         self.db.execute(SCHEMA)
         self.db.commit()
 

@@ -1,0 +1,196 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Reclaim: flow, architecture and how it uses LangChain</title>
+<style>
+@page{size:Letter;margin:16mm 15mm}
+*{box-sizing:border-box}
+body{font:10.5pt/1.5 -apple-system,Helvetica,Arial,sans-serif;color:#1b1b1b;margin:0}
+h1{font-size:24pt;margin:0 0 2pt;letter-spacing:-0.5pt}
+h2{font-size:14pt;margin:0 0 6pt;padding-bottom:3pt;border-bottom:2px solid #1b1b1b}
+h3{font-size:11pt;margin:12pt 0 3pt}
+.sub{color:#666;margin:0 0 10pt}
+section{page-break-inside:avoid;margin-bottom:14pt}
+.pb{page-break-before:always}
+p{margin:4pt 0}
+table{border-collapse:collapse;width:100%;font-size:9pt;margin:6pt 0}
+td,th{border:1px solid #ccc;padding:4pt 6pt;text-align:left;vertical-align:top}
+th{background:#f1f1f1}
+code{font:8.6pt ui-monospace,Menlo,monospace;background:#f3f3f3;padding:0 2pt;border-radius:2pt}
+.key{display:flex;gap:10pt;flex-wrap:wrap;font-size:9pt;margin:4pt 0 8pt}
+.key span{display:inline-flex;align-items:center;gap:4pt}
+.sw{width:11pt;height:11pt;border-radius:2pt;border:1px solid #888;display:inline-block}
+.note{background:#f7f7f2;border-left:3px solid #9ab12b;padding:5pt 8pt;font-size:9.5pt;margin:6pt 0}
+.warn{background:#fff7ea;border-left:3px solid #d98a00;padding:5pt 8pt;font-size:9.5pt;margin:6pt 0}
+ol,ul{margin:3pt 0 3pt 16pt;padding:0}li{margin:2pt 0}
+svg{width:100%;height:auto;display:block}
+svg text{font-family:-apple-system,Helvetica,Arial,sans-serif}
+.small{font-size:8.5pt;color:#555}
+</style></head><body>
+
+<section>
+<h1>Reclaim</h1>
+<p class="sub">Flow, architecture, and how it uses LangChain Deep Agents. All data in the project is synthetic.</p>
+<h2>1. What it does</h2>
+<p>Delivery platforms (DoorDash, Uber Eats) deduct money from an independent restaurant after a customer reports a missing or wrong item. A chain has a finance team to contest that; an independent owner has a payout CSV and a drawer of order tickets, so they usually absorb it.</p>
+<p><b>Reclaim reads the payout CSV, finds those refund deductions, ranks them by what is realistically recoverable, gathers evidence from the order tickets and timestamps, drafts a factual and non-accusatory dispute for each strong case, and waits for the owner to approve.</b> Approving prepares a filing packet; the owner files it in the platform's merchant portal (neither platform offers a public dispute API). When the platform answers, the owner records Won or Lost, and the system learns from it.</p>
+<div class="note"><b>Three rules shape everything.</b> (1) Nothing is approved without the owner. (2) The agent never states anything it cannot cite to evidence. (3) Money, dates and scores are plain tested code, never the model's guess.</div>
+</section>
+
+<section>
+<h2>2. End-to-end flow</h2>
+<div class="key">
+<span><i class="sw" style="background:#dbe9ff"></i>Plain Python (deterministic, tested)</span>
+<span><i class="sw" style="background:#d9f2d0"></i>LLM agent (Deep Agents)</span>
+<span><i class="sw" style="background:#ffe7b8"></i>Human decision</span>
+<span><i class="sw" style="background:#e6e6e6"></i>Stored memory</span>
+</div>
+<svg viewBox="0 0 740 905" role="img" aria-label="End-to-end flow of Reclaim">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#333"/></marker></defs>
+<g font-size="12" stroke="#444" stroke-width="1.2">
+<!-- main column x=40..330 -->
+<rect x="40" y="10" width="290" height="46" rx="8" fill="#ffe7b8"/><text x="185" y="29" text-anchor="middle" stroke="none" font-weight="700">Owner drops a payout CSV</text><text x="185" y="45" text-anchor="middle" stroke="none" font-size="10.5">DoorDash or Uber Eats export</text>
+<rect x="40" y="86" width="290" height="50" rx="8" fill="#dbe9ff"/><text x="185" y="105" text-anchor="middle" stroke="none" font-weight="700">Ingest and validate</text><text x="185" y="122" text-anchor="middle" stroke="none" font-size="10.5">Parse rows, hash customer names, report bad rows</text>
+<rect x="40" y="166" width="290" height="50" rx="8" fill="#dbe9ff"/><text x="185" y="185" text-anchor="middle" stroke="none" font-weight="700">Triage and score</text><text x="185" y="202" text-anchor="middle" stroke="none" font-size="10.5">expected value = amount x win probability</text>
+<rect x="40" y="246" width="290" height="50" rx="8" fill="#d9f2d0"/><text x="185" y="265" text-anchor="middle" stroke="none" font-weight="700">Orchestrator agent plans</text><text x="185" y="282" text-anchor="middle" stroke="none" font-size="10.5">to-do list, one case at a time, reads memory</text>
+<rect x="40" y="326" width="290" height="50" rx="8" fill="#d9f2d0"/><text x="185" y="345" text-anchor="middle" stroke="none" font-weight="700">Evidence subagent (per case)</text><text x="185" y="362" text-anchor="middle" stroke="none" font-size="10.5">ticket vs claim, pickup times, repeat claimant</text>
+<polygon points="185,404 275,436 185,468 95,436" fill="#d9f2d0"/><text x="185" y="440" text-anchor="middle" stroke="none" font-weight="700">Weak case?</text>
+<rect x="40" y="498" width="290" height="50" rx="8" fill="#d9f2d0"/><text x="185" y="517" text-anchor="middle" stroke="none" font-weight="700">Dispute-writer subagent</text><text x="185" y="534" text-anchor="middle" stroke="none" font-size="10.5">facts only, cites evidence ids</text>
+<rect x="40" y="578" width="290" height="50" rx="8" fill="#dbe9ff"/><text x="185" y="597" text-anchor="middle" stroke="none" font-weight="700">Checks on every draft</text><text x="185" y="614" text-anchor="middle" stroke="none" font-size="10.5">wording lint, evidence ids exist, names the order</text>
+<rect x="40" y="658" width="290" height="50" rx="8" fill="#ffe7b8"/><text x="185" y="677" text-anchor="middle" stroke="none" font-weight="700">Approval gate (agent pauses)</text><text x="185" y="694" text-anchor="middle" stroke="none" font-size="10.5">Approve / Edit / Skip: web app or text message</text>
+<rect x="40" y="738" width="290" height="50" rx="8" fill="#dbe9ff"/><text x="185" y="757" text-anchor="middle" stroke="none" font-weight="700">Filing packet prepared</text><text x="185" y="774" text-anchor="middle" stroke="none" font-size="10.5">case shows "Ready to file", copy buttons, deadline</text>
+<rect x="40" y="818" width="290" height="50" rx="8" fill="#ffe7b8"/><text x="185" y="837" text-anchor="middle" stroke="none" font-weight="700">Owner files in the merchant portal</text><text x="185" y="854" text-anchor="middle" stroke="none" font-size="10.5">then records Won or Lost (or texts WON 28.40)</text>
+<!-- arrows main -->
+<g stroke="#333" stroke-width="1.6" fill="none" marker-end="url(#a)">
+<path d="M185 56V84"/><path d="M185 136V164"/><path d="M185 216V244"/><path d="M185 296V324"/><path d="M185 376V402"/>
+<path d="M185 468V496"/><path d="M185 548V576"/><path d="M185 628V656"/><path d="M185 708V736"/><path d="M185 788V816"/>
+</g>
+<text x="195" y="486" stroke="none" font-size="10.5" fill="#333">no</text>
+<!-- weak branch -->
+<rect x="400" y="410" width="300" height="52" rx="8" fill="#d9f2d0"/><text x="550" y="429" text-anchor="middle" stroke="none" font-weight="700">Re-plan (visible in the UI)</text><text x="550" y="446" text-anchor="middle" stroke="none" font-size="10.5">demote it, promote the next case,</text><text x="550" y="458" text-anchor="middle" stroke="none" font-size="10.5">add "request ticket photo" to-do</text>
+<g stroke="#333" stroke-width="1.6" fill="none" marker-end="url(#a)"><path d="M275 436H398"/><path d="M550 410V272H332"/></g>
+<text x="318" y="430" stroke="none" font-size="10.5" fill="#333">yes</text>
+<!-- skip branch -->
+<rect x="400" y="662" width="300" height="42" rx="8" fill="#ffe7b8"/><text x="550" y="680" text-anchor="middle" stroke="none" font-weight="700">Skip: case closed, nothing sent</text><text x="550" y="695" text-anchor="middle" stroke="none" font-size="10.5">Edit: re-checked by the same rules</text>
+<g stroke="#333" stroke-width="1.6" fill="none" marker-end="url(#a)"><path d="M330 683H398"/></g>
+<!-- memory -->
+<rect x="400" y="800" width="300" height="86" rx="8" fill="#e6e6e6"/><text x="550" y="822" text-anchor="middle" stroke="none" font-weight="700">Persistent memory</text><text x="550" y="840" text-anchor="middle" stroke="none" font-size="10.5">SQLite outcomes (won / lost, evidence pattern)</text><text x="550" y="855" text-anchor="middle" stroke="none" font-size="10.5">+ lessons file the agent reads every run</text><text x="550" y="873" text-anchor="middle" stroke="none" font-size="10.5">shown on each case as "From memory"</text>
+<g stroke="#333" stroke-width="1.6" fill="none" marker-end="url(#a)"><path d="M330 843H398"/><path d="M700 843H722V191H332"/></g>
+<text x="500" y="780" stroke="none" font-size="10.5" fill="#333" text-anchor="middle">next triage starts from what happened before</text>
+</g></svg>
+</section>
+
+<section class="pb">
+<h2>3. Architecture</h2>
+<svg viewBox="0 0 740 640" role="img" aria-label="Reclaim architecture">
+<defs><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#333"/></marker></defs>
+<g font-size="12" stroke="#444" stroke-width="1.2">
+<rect x="10" y="10" width="340" height="62" rx="8" fill="#ffe7b8"/><text x="180" y="32" text-anchor="middle" stroke="none" font-weight="700">Web app (Next.js 16)</text><text x="180" y="50" text-anchor="middle" stroke="none" font-size="10.5">queue, case detail, agent panel, packet panel,</text><text x="180" y="63" text-anchor="middle" stroke="none" font-size="10.5">memory strip, agent-files viewer</text>
+<rect x="390" y="10" width="340" height="62" rx="8" fill="#ffe7b8"/><text x="560" y="32" text-anchor="middle" stroke="none" font-weight="700">Text approval bridge</text><text x="560" y="50" text-anchor="middle" stroke="none" font-size="10.5">strict reply parser, owner-only sender check</text><text x="560" y="63" text-anchor="middle" stroke="none" font-size="10.5">simulator today; webhook for Photon (not live)</text>
+
+<rect x="10" y="104" width="720" height="110" rx="10" fill="#fff" stroke-dasharray="5 4"/><text x="22" y="122" stroke="none" font-weight="700" font-size="11.5">FastAPI backend</text>
+<rect x="24" y="132" width="210" height="66" rx="6" fill="#ffe7b8"/><text x="129" y="152" text-anchor="middle" stroke="none" font-weight="700" font-size="11.5">apply_decision</text><text x="129" y="168" text-anchor="middle" stroke="none" font-size="10">the ONLY code that resumes the agent</text><text x="129" y="182" text-anchor="middle" stroke="none" font-size="10">web and text both call it</text>
+<rect x="252" y="132" width="210" height="66" rx="6" fill="#dbe9ff"/><text x="357" y="152" text-anchor="middle" stroke="none" font-weight="700" font-size="11.5">Run manager + SSE stream</text><text x="357" y="168" text-anchor="middle" stroke="none" font-size="10">live plan, subagent cards, re-plan</text><text x="357" y="182" text-anchor="middle" stroke="none" font-size="10">clear error states, atomic file writes</text>
+<rect x="480" y="132" width="236" height="66" rx="6" fill="#dbe9ff"/><text x="598" y="152" text-anchor="middle" stroke="none" font-weight="700" font-size="11.5">Code-change guard</text><text x="598" y="168" text-anchor="middle" stroke="none" font-size="10">edit source mid-run: stop run, restart,</text><text x="598" y="182" text-anchor="middle" stroke="none" font-size="10">relaunch it fresh on the new code</text>
+
+<rect x="10" y="246" width="440" height="230" rx="10" fill="#f4fbf0"/><text x="22" y="264" stroke="none" font-weight="700" font-size="11.5">Deep Agent (LangChain deepagents on LangGraph)</text>
+<rect x="24" y="274" width="412" height="46" rx="6" fill="#d9f2d0"/><text x="230" y="293" text-anchor="middle" stroke="none" font-weight="700" font-size="11.5">Orchestrator</text><text x="230" y="309" text-anchor="middle" stroke="none" font-size="10">plans with write_todos, delegates with task, pauses at send_dispute</text>
+<rect x="24" y="330" width="198" height="52" rx="6" fill="#d9f2d0"/><text x="123" y="350" text-anchor="middle" stroke="none" font-weight="700" font-size="11.5">evidence subagent</text><text x="123" y="366" text-anchor="middle" stroke="none" font-size="10">one case, own context, 5 tools</text>
+<rect x="238" y="330" width="198" height="52" rx="6" fill="#d9f2d0"/><text x="337" y="350" text-anchor="middle" stroke="none" font-weight="700" font-size="11.5">dispute-writer subagent</text><text x="337" y="366" text-anchor="middle" stroke="none" font-size="10">one case, own context, 3 tools</text>
+<rect x="24" y="392" width="412" height="72" rx="6" fill="#fff"/><text x="34" y="408" stroke="none" font-size="10" font-weight="700">Deep Agents features in use</text>
+<text x="34" y="424" stroke="none" font-size="10">TodoListMiddleware (planning) | interrupt_on + SqliteSaver (human-in-the-loop)</text>
+<text x="34" y="439" stroke="none" font-size="10">CompositeBackend + FilesystemBackend (case folders, /memory/) | memory=[AGENTS.md]</text>
+<text x="34" y="454" stroke="none" font-size="10">FilesystemPermission (agent may write only /plan.md and /notes/**)</text>
+
+<rect x="470" y="246" width="260" height="110" rx="10" fill="#eef4ff"/><text x="482" y="264" stroke="none" font-weight="700" font-size="11.5">Deterministic tools (plain Python)</text>
+<text x="482" y="282" stroke="none" font-size="10">ingest and CSV parsing (cents, dates)</text><text x="482" y="297" stroke="none" font-size="10">scoring, queue, deadlines</text><text x="482" y="312" stroke="none" font-size="10">evidence checks (ticket, times, repeats)</text><text x="482" y="327" stroke="none" font-size="10">wording lint, draft validation</text><text x="482" y="342" stroke="none" font-size="10">packet writer, approval-gated send</text>
+
+<rect x="470" y="368" width="260" height="108" rx="10" fill="#fff"/><text x="482" y="386" stroke="none" font-weight="700" font-size="11.5">Model layer</text>
+<text x="482" y="404" stroke="none" font-size="10">CachedChatModel: replay / record / auto</text><text x="482" y="419" stroke="none" font-size="10">wraps ChatAnthropic (Claude), 60 s timeout,</text><text x="482" y="434" stroke="none" font-size="10">max_tokens capped, prompt caching enabled</text><text x="482" y="452" stroke="none" font-size="10" font-weight="700">LangSmith tracing (opt-in side channel)</text><text x="482" y="466" stroke="none" font-size="10">tags: replayed-from-cache or live-model</text>
+
+<rect x="10" y="508" width="720" height="110" rx="10" fill="#f2f2f2"/><text x="22" y="526" stroke="none" font-weight="700" font-size="11.5">Storage (all local; nothing leaves the machine unless tracing is turned on)</text>
+<rect x="24" y="536" width="165" height="70" rx="6" fill="#e6e6e6"/><text x="106" y="556" text-anchor="middle" stroke="none" font-weight="700" font-size="11">SQLite</text><text x="106" y="571" text-anchor="middle" stroke="none" font-size="10">outcomes memory,</text><text x="106" y="585" text-anchor="middle" stroke="none" font-size="10">run checkpoints</text>
+<rect x="199" y="536" width="165" height="70" rx="6" fill="#e6e6e6"/><text x="281" y="556" text-anchor="middle" stroke="none" font-weight="700" font-size="11">AGENTS.md</text><text x="281" y="571" text-anchor="middle" stroke="none" font-size="10">lessons the agent</text><text x="281" y="585" text-anchor="middle" stroke="none" font-size="10">reads on every run</text>
+<rect x="374" y="536" width="165" height="70" rx="6" fill="#e6e6e6"/><text x="456" y="556" text-anchor="middle" stroke="none" font-weight="700" font-size="11">Case folders</text><text x="456" y="571" text-anchor="middle" stroke="none" font-size="10">case, evidence, draft,</text><text x="456" y="585" text-anchor="middle" stroke="none" font-size="10">decision, packet, trace</text>
+<rect x="549" y="536" width="167" height="70" rx="6" fill="#e6e6e6"/><text x="632" y="556" text-anchor="middle" stroke="none" font-weight="700" font-size="11">LLM replay cache</text><text x="632" y="571" text-anchor="middle" stroke="none" font-size="10">recorded real-model runs</text><text x="632" y="585" text-anchor="middle" stroke="none" font-size="10">so the demo works offline</text>
+
+<g stroke="#333" stroke-width="1.6" fill="none" marker-end="url(#b)">
+<path d="M180 72V130"/><path d="M560 72V102H129V130"/>
+<path d="M230 214V244"/><path d="M450 300H468"/><path d="M450 420H468"/><path d="M230 476V506"/>
+</g>
+</g></svg>
+<p class="small">Arrows show the main dependencies: the UI and the text bridge reach the agent only through <code>apply_decision</code>; the agent calls deterministic tools and the model layer; everything it records lands in local storage.</p>
+</section>
+
+<section class="pb">
+<h2>4. How it works, step by step</h2>
+<table>
+<tr><th style="width:26pt">#</th><th style="width:150pt">Step</th><th>What happens and how</th></tr>
+<tr><td>1</td><td>Ingest</td><td>Plain Python parses the CSV with exact integer cents. Customer names are hashed on load so repeat claimants can be matched without keeping names. Bad rows are reported, never silently dropped. The model never sees the raw file, only a path and counts.</td></tr>
+<tr><td>2</td><td>Triage</td><td>Each refund deduction is scored: base win rate by claim type, plus fixed adjustments for evidence, plus a small prior from past outcomes. Expected recovery = amount x win probability; earliest deadline breaks ties (14 days DoorDash, about 30 Uber Eats). Each score carries written reasons. Expired cases are zeroed and sink.</td></tr>
+<tr><td>3</td><td>Plan</td><td>The orchestrator agent writes a to-do list in queue order and reads the lessons in memory.</td></tr>
+<tr><td>4</td><td>Gather evidence</td><td>For each case the orchestrator hands off to the evidence subagent, which works in a clean context on that one case. It runs three checks (ticket vs claim, pickup timestamps, repeat claimant). Each finding is stored with a source reference. If proof is missing it says so: the case becomes "weak".</td></tr>
+<tr><td>5</td><td>Re-plan</td><td>When a case comes back weak, the orchestrator rewrites its plan: demote it, promote the next case, add "request ticket photo". The UI shows the reason on the case and in the agent panel.</td></tr>
+<tr><td>6</td><td>Draft</td><td>The dispute-writer subagent drafts a short, factual dispute that cites evidence ids. A deterministic check rejects accusatory wording, unknown evidence ids, drafts that do not name the order, and drafts with no supporting evidence. One retry is allowed.</td></tr>
+<tr><td>7</td><td>Approve</td><td>The agent is paused by <code>interrupt_on</code> on the one tool that files a dispute. The owner approves, edits (edits face the same checks) or skips, in the web app or by text. Only a bare YES approves; "yes, but change it" does nothing. A second check refuses to send anything not approved.</td></tr>
+<tr><td>8</td><td>Packet</td><td>Approving writes a filing packet and the case shows "Ready to file", with a link to the merchant portal, copy buttons and the deadline. The owner files it.</td></tr>
+<tr><td>9</td><td>Learn</td><td>The owner records Won or Lost (or texts <code>WON 28.40</code> / <code>LOST</code>). The outcome goes to SQLite and a lesson to <code>AGENTS.md</code>. The next run starts from it, and each case explains it: "Starting win rate raised from 55% to 60% because 2 of 3 past missing-item disputes won".</td></tr>
+</table>
+</section>
+
+<section class="pb">
+<h2>5. How Reclaim uses LangChain</h2>
+<p>Reclaim is built on <b>LangChain Deep Agents</b> (<code>create_deep_agent</code>, on LangGraph) with <code>langchain-anthropic</code> for the model and <b>LangSmith</b> for tracing. Each Deep Agents feature does a job the product needs, not decoration.</p>
+<table>
+<tr><th style="width:120pt">Feature</th><th style="width:150pt">Where</th><th>Why it is used</th></tr>
+<tr><td>Subagents</td><td><code>evidence</code>, <code>dispute-writer</code> via the <code>task</code> tool</td><td>Each case is judged in a clean context holding only that case, so one case cannot contaminate another, and each specialist has a narrow prompt and toolset (5 and 3 tools). The orchestrator's own history is not copied into them.</td></tr>
+<tr><td>Planning</td><td><code>TodoListMiddleware</code> (<code>write_todos</code>)</td><td>The plan is shown live and rewritten when a case turns out weak. This is the visible "re-plan" moment.</td></tr>
+<tr><td>Human-in-the-loop</td><td><code>interrupt_on={"send_dispute": ...}</code> + <code>SqliteSaver</code></td><td>The graph pauses at the one irreversible action and resumes only through <code>apply_decision</code>, so approval is enforced by the framework, not by a prompt.</td></tr>
+<tr><td>File system</td><td><code>CompositeBackend</code>, <code>FilesystemBackend</code></td><td>Per-case notes, drafts, decisions, packets and a local trace live in case folders; the "Agent files" button in the UI shows what the agent actually wrote.</td></tr>
+<tr><td>Permissions</td><td><code>FilesystemPermission</code></td><td>The agent may write only <code>/plan.md</code> and <code>/notes/**</code>. It cannot delete or overwrite audit files, packets or memory.</td></tr>
+<tr><td>Persistent memory</td><td><code>memory=["/memory/AGENTS.md"]</code> + <code>recall_similar_cases</code></td><td>Lessons are loaded into every prompt, so the agent improves with outcomes. The deterministic prior and the agent's lessons point the same way and are both shown to the owner.</td></tr>
+<tr><td>Tracing</td><td>LangSmith (opt-in)</td><td>Every run is a tree: orchestrator, nested subagent calls with their tools, and the approval pause. Tags say whether outputs were replayed or live.</td></tr>
+</table>
+<h3>Two LangChain-specific engineering findings</h3>
+<ul>
+<li><b>Prompt caching was silently off.</b> Deep Agents adds Anthropic prompt caching automatically, but only when the model object is a <code>ChatAnthropic</code>. Reclaim wraps the model in a record/replay cache, so caching never engaged. We added the cache breakpoints inside the wrapper and measured it on a full live run: 576,337 input tokens, of which 516,572 (89.6%) were cache reads and only 160 were uncached, with 12,106 output tokens.</li>
+<li><b>Deterministic offline replay of a non-deterministic agent.</b> The wrapper hashes each request (model, tools, messages) and replays the recorded real-model response. Eight recorded paths replay with the network blocked, and an audit script fails loudly on any miss.</li>
+</ul>
+</section>
+
+<section>
+<h2>6. Why this design is stronger</h2>
+<p>This is a comparison of <i>approaches</i>, not a claim that nobody else works on this problem. Recovery services for restaurant chains exist; Reclaim targets the independent owner who has only a CSV and a drawer of tickets.</p>
+<table>
+<tr><th style="width:105pt">Question</th><th style="width:170pt">A single-prompt chatbot or a script</th><th>Reclaim</th></tr>
+<tr><td>Who decides what is filed?</td><td>Often the tool itself, or whoever copies its output.</td><td>The owner, enforced at the graph level and checked a second time inside the send tool. A bare YES is the only text approval.</td></tr>
+<tr><td>Can it invent facts?</td><td>A prompt can ask it not to.</td><td>Every claim must cite an evidence id that exists on the case; missing proof makes the case "weak". Accusation wording is rejected by code, including on the owner's own edits.</td></tr>
+<tr><td>Who does the maths?</td><td>The model, with rounding and date errors.</td><td>Plain code with tests: integer cents, deadlines, scoring with written reasons. The model never assigns a probability.</td></tr>
+<tr><td>Does it learn?</td><td>Rarely; each run starts blank.</td><td>Outcomes and lessons persist, adjust win rates, and are explained on each case.</td></tr>
+<tr><td>Can you audit it?</td><td>A chat transcript.</td><td>Per-case folders (evidence, draft, decision, packet, trace), the Agent files viewer, and optional LangSmith traces.</td></tr>
+<tr><td>Does it work when the Wi-Fi does not?</td><td>No.</td><td>Offline replay of recorded real-model runs, verified with the network blocked.</td></tr>
+<tr><td>Is cost controlled?</td><td>Usually unmeasured.</td><td>Prompt caching verified (89.6% of input read from cache on a live run), capped output, bounded timeouts, subagents with scoped context.</td></tr>
+<tr><td>Is it honest about limits?</td><td>Varies.</td><td>The UI says "estimates, not guarantees", labels demo data synthetic, and says that filing is manual.</td></tr>
+</table>
+</section>
+
+<section>
+<h2>7. Quality and verification</h2>
+<ul>
+<li><b>236 backend tests pass</b>, including 106 edge-case tests: malformed CSVs, expired and same-day deadlines, missing and partial tickets, non-Latin product names, concurrent approvals, a model asking to send several disputes in one turn, two processes writing SQLite, a killed server, a code edit during a run, API timeouts and a missing key.</li>
+<li><b>Offline audit: 8 of 8</b> sample paths replay with the network blocked.</li>
+<li><b>Accessibility and mobile:</b> axe-core clean on the main views; no horizontal overflow at 375 px and 414 px widths.</li>
+</ul>
+</section>
+
+<section>
+<h2>8. Honest limits</h2>
+<div class="warn">
+<ul>
+<li><b>Text approval is simulated.</b> The parser and bridge are tested; a live Photon link is not built (it needs a Node sidecar and credentials).</li>
+<li><b>Reclaim does not file for you.</b> Neither platform has a public dispute API. It prepares the packet and the owner files it. Recording the result is manual.</li>
+<li><b>Win rates are heuristics</b> (a fixed table, evidence adjustments and a small memory prior), not measured platform win rates.</li>
+<li><b>Replay covers recorded decision paths.</b> A new CSV needs a live model and API key.</li>
+<li><b>Scoring rule, fixed late:</b> a ticket that lists the claimed item no longer raises a missing-item score (it proves the item was ordered, not packed); it still adds points for wrong-item claims, and an omitted item still adds the most. The recorded demo was re-recorded for this.</li>
+<li><b>Inputs:</b> CSV only; no screenshots, PDFs or Grubhub yet.</li>
+</ul>
+</div>
+</section>
+</body></html>

@@ -13,16 +13,39 @@ export function useRun() {
   const seen = useRef(new Set<number>());
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idRef = useRef<string | null>(null);
+  const stoppedSince = useRef<number | null>(null);
+
+  const follow = useCallback((id: string) => {   // switch to another run (the fresh one after a backend restart)
+    seen.current = new Set(); idRef.current = id; stoppedSince.current = null;
+    setEvents([]); setCases([]); setHero(null); setState(null); setRunId(id);
+  }, []);
+
+  const reset = useCallback((message: string | null = null) => {
+    idRef.current = null; stoppedSince.current = null;
+    setRunId(null); setState(null); setEvents([]); setCases([]); setHero(null); setStartError(message);
+  }, []);
 
   const refresh = useCallback(async () => {
     const id = idRef.current;
     if (!id) return;
     try {
-      const [s, c] = await Promise.all([api.run(id), api.cases(id)]);
+      const s = await api.run(id);
+      if (idRef.current !== id) return;
+      if (s.status === "stopped") {   // the backend stopped this run because its code changed and is restarting
+        if (s.replaced_by) { follow(s.replaced_by); return; }
+        stoppedSince.current ??= Date.now();
+        if (Date.now() - stoppedSince.current > 45_000) { reset("The server did not come back after a code change. Start the report again."); return; }
+        setState(s); return;
+      }
+      stoppedSince.current = null;
+      const c = await api.cases(id);
       if (idRef.current !== id) return;
       setState(s); setCases(c.cases); setHero(c.hero);
-    } catch { /* the stream shows transport trouble; keep last good data */ }
-  }, []);
+    } catch (e) {
+      if ((e as { status?: number }).status === 404) { reset("The server restarted, so this run was lost. Start the report again."); return; }
+      /* otherwise: transport trouble (for example the server is restarting); keep the last good data and keep polling */
+    }
+  }, [follow, reset]);
 
   const schedule = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -41,10 +64,6 @@ export function useRun() {
     }
   }, []);
 
-  const reset = useCallback(() => {
-    idRef.current = null; setRunId(null); setState(null); setEvents([]); setCases([]); setHero(null); setStartError(null);
-  }, []);
-
   useEffect(() => {
     if (!runId) return;
     const es = new EventSource(`/api/runs/${runId}/events`);
@@ -57,7 +76,9 @@ export function useRun() {
     };
     es.addEventListener("end", () => { es.close(); refresh(); });
     refresh();
-    return () => { es.close(); if (timer.current) clearTimeout(timer.current); };
+    // The event stream cannot survive a backend restart, so also poll until the run is finished.
+    const poll = setInterval(refresh, 2000);
+    return () => { es.close(); clearInterval(poll); if (timer.current) clearTimeout(timer.current); };
   }, [runId, schedule, refresh]);
 
   const decide = useCallback(async (caseId: string, d: "approve" | "edit" | "skip", body?: string) => {
@@ -66,7 +87,7 @@ export function useRun() {
     schedule();
   }, [runId, schedule]);
 
-  return { runId, state, events, cases, hero, startError, start, reset, decide, refresh };
+  return { runId, state, events, cases, hero, startError, start, reset: () => reset(null), decide, refresh };
 }
 
 export function useCaseDetail(runId: string | null, caseId: string | null, version: string) {

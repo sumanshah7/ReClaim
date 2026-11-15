@@ -61,6 +61,26 @@ class CacheMiss(RuntimeError):
     pass
 
 
+class MissingApiKey(RuntimeError):
+    pass
+
+
+REQUEST_TIMEOUT_S = 60      # one model call; without this a stalled connection can hang a run for the SDK default (10 min)
+MAX_RETRIES = 2
+
+
+def require_api_key(mode: str) -> None:
+    """Fail fast and plainly. A live or record mode with no key would otherwise hang or die later with an opaque error."""
+    if mode in ("record", "auto") and not (os.getenv("ANTHROPIC_API_KEY") or "").strip():
+        raise MissingApiKey(
+            f"RECLAIM_LLM_MODE={mode} needs an Anthropic API key, but ANTHROPIC_API_KEY is empty or not set. "
+            "Add it to .env, or run in offline replay mode (RECLAIM_LLM_MODE=replay) which needs no key.")
+
+
+def resolved_mode(mode: str | None = None) -> str:
+    return mode or os.getenv("RECLAIM_LLM_MODE") or ("auto" if (os.getenv("ANTHROPIC_API_KEY") or "").strip() else "replay")
+
+
 def _canon(messages: list[BaseMessage]) -> list[dict]:
     out = []
     for m in messages:
@@ -117,12 +137,14 @@ class CachedChatModel(BaseChatModel):
 
 def make_model(cache_dir: Path, mode: str | None = None, model_name: str | None = None):
     name = model_name or os.getenv("RECLAIM_MODEL", DEFAULT_MODEL)
-    mode = mode or os.getenv("RECLAIM_LLM_MODE") or ("auto" if os.getenv("ANTHROPIC_API_KEY") else "replay")
+    mode = resolved_mode(mode)
     if mode == "scripted":  # dev/test only: never a substitute for recorded model output
         from .devtools.policy_model import PolicyChatModel
         return PolicyChatModel()
     inner = None
     if mode != "replay":
+        require_api_key(mode)
         from langchain_anthropic import ChatAnthropic
-        inner = ChatAnthropic(model=name, max_tokens=int(os.getenv("RECLAIM_MAX_TOKENS", DEFAULT_MAX_TOKENS)))
+        inner = ChatAnthropic(model=name, max_tokens=int(os.getenv("RECLAIM_MAX_TOKENS", DEFAULT_MAX_TOKENS)),
+                              timeout=REQUEST_TIMEOUT_S, max_retries=MAX_RETRIES)
     return CachedChatModel(inner=inner, cache_dir=Path(cache_dir), mode=mode, model_name=name)

@@ -49,6 +49,8 @@ Open http://localhost:3100 and pick a sample. No API key is needed: the default 
 | `make seed` | Adds the seed outcomes if missing (does not clear anything) |
 | `make api LLM_MODE=scripted` | Dev-only scripted model, for UI work |
 
+**Code changes during a run:** `make api` watches the backend source and prompts. If they change while a run is in progress, that run is stopped (the UI says "Restarting on new code"), the server restarts, and the run is relaunched fresh, so a run never continues on stale code. A server that is killed mid-run simply forgets its runs (clear "unknown run" response, the UI asks you to start again); case files are written atomically so none is left half-written.
+
 **Replay covers the recorded decision paths**: approve the first dispute then skip the rest, or approve all of them. Any other order shows a clear "not in the offline cache" message instead of a wrong answer. Re-record to cover more.
 
 ## Safety rules (see `CONSTITUTION.md`)
