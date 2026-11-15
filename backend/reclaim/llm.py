@@ -19,6 +19,40 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.utils.function_calling import convert_to_openai_tool
 
 DEFAULT_MODEL = "claude-sonnet-5-5"
+# The largest response in 266 recorded calls was 889 output tokens, so 1200 leaves headroom without leaving the
+# default (2048) as an open-ended ceiling. Override with RECLAIM_MAX_TOKENS.
+DEFAULT_MAX_TOKENS = 1200
+CACHE_CONTROL = {"type": "ephemeral"}
+
+# Running totals from the API's own usage report, so caching is confirmed from cache_read_input_tokens
+# (langchain exposes it as input_token_details.cache_read) rather than assumed.
+USAGE: dict[str, int] = {"calls": 0, "input": 0, "cache_read": 0, "cache_creation": 0, "output": 0}
+
+
+def record_usage(msg: BaseMessage) -> None:
+    u = getattr(msg, "usage_metadata", None) or {}
+    d = u.get("input_token_details") or {}
+    USAGE["calls"] += 1
+    USAGE["input"] += u.get("input_tokens", 0)   # langchain's input_tokens already includes cached tokens
+    USAGE["cache_read"] += d.get("cache_read", 0) or 0
+    USAGE["cache_creation"] += d.get("cache_creation", 0) or 0
+    USAGE["output"] += u.get("output_tokens", 0)
+
+
+def _tag_system(messages: list[BaseMessage]) -> list[BaseMessage]:
+    """Put an ephemeral cache breakpoint on the last block of the system prompt. Tools come before the system prompt
+    in Anthropic's prefix order, so this one breakpoint caches the tool definitions and all fixed instructions
+    (orchestrator rules, memory lessons). Applied only to the copy sent to the API, never to the replay-cache key."""
+    out = list(messages)
+    for i, m in enumerate(out):
+        if m.type != "system":
+            continue
+        blocks = [{"type": "text", "text": m.content}] if isinstance(m.content, str) else list(m.content)
+        if blocks and isinstance(blocks[-1], dict) and "cache_control" not in blocks[-1]:
+            blocks[-1] = {**blocks[-1], "cache_control": CACHE_CONTROL}
+            out[i] = m.model_copy(update={"content": blocks})
+        break
+    return out
 
 
 class CacheMiss(RuntimeError):
@@ -70,7 +104,10 @@ class CachedChatModel(BaseChatModel):
             (dump / f"{path.stem[:12]}.json").write_text(json.dumps(_canon(messages), indent=1, default=str))
             raise CacheMiss(f"no cached LLM response for request {path.stem[:12]} (mode={self.mode}); "
                             "re-record with scripts/record_cache.py")
-        out = self.inner.invoke(messages, stop=stop)
+        # Two breakpoints: the system prompt (fixed per agent) and a top-level one that Anthropic moves to the end of
+        # the conversation each call, so the growing history is read from cache instead of re-billed in full.
+        out = self.inner.invoke(_tag_system(messages), stop=stop, cache_control=CACHE_CONTROL)
+        record_usage(out)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(message_to_dict(out), default=str))
         return ChatResult(generations=[ChatGeneration(message=out)])
@@ -85,5 +122,5 @@ def make_model(cache_dir: Path, mode: str | None = None, model_name: str | None 
     inner = None
     if mode != "replay":
         from langchain_anthropic import ChatAnthropic
-        inner = ChatAnthropic(model=name, max_tokens=2048)
+        inner = ChatAnthropic(model=name, max_tokens=int(os.getenv("RECLAIM_MAX_TOKENS", DEFAULT_MAX_TOKENS)))
     return CachedChatModel(inner=inner, cache_dir=Path(cache_dir), mode=mode, model_name=name)

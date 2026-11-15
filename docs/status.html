@@ -1,0 +1,56 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Reclaim status report</title>
+<style>
+@page{size:Letter;margin:18mm}
+body{font:11pt/1.5 -apple-system,Helvetica,Arial,sans-serif;color:#1a1a1a}
+h1{font-size:26pt;margin:0 0 2pt}h2{font-size:14pt;margin:20pt 0 6pt;border-bottom:1px solid #ccc;padding-bottom:3pt}
+.sub{color:#666;margin-bottom:12pt}li{margin:2pt 0}
+table{border-collapse:collapse;width:100%;font-size:10pt}td,th{border:1px solid #ddd;padding:4pt 6pt;text-align:left;vertical-align:top}th{background:#f3f3f3}
+.done{color:#1a7f37;font-weight:600}.todo{color:#b35900;font-weight:600}
+</style></head><body>
+<h1>Reclaim</h1>
+<div class="sub">Status report: what was built, what is complete, what remains. All data is synthetic.</div>
+
+<h2>1. What it is</h2>
+<p>Independent restaurants lose money when DoorDash, Uber Eats or Grubhub deduct a refund after a "missing or wrong item" claim, and they have no back office to contest it. Reclaim reads the payout CSV, scores each refund deduction by recoverable amount × win probability (deadline breaks ties), gathers evidence from tickets and timestamps, drafts a factual dispute, and waits for the owner's approval. Nothing is sent without approval. Targets: Peri Forward Deployed Challenge, LangChain Best Use of deepagents, optionally Photon.</p>
+
+<h2>2. Completed</h2>
+<table>
+<tr><th>Area</th><th>What exists</th><th>Status</th></tr>
+<tr><td>Constitution</td><td>12 rules saved in CONSTITUTION.md; every design decision maps to a rule</td><td class="done">Done</td></tr>
+<tr><td>Core pipeline</td><td>DoorDash and Uber Eats CSV parsers, money in cents, deadline math, deterministic scoring with written reasons, queue, SQLite outcome memory</td><td class="done">Done, tested</td></tr>
+<tr><td>Deep Agent</td><td>deepagents orchestrator; <i>evidence</i> and <i>dispute-writer</i> subagents; planning with re-plan on weak cases; file system with write permissions limited to plan and notes; persistent memory file; interrupt on the one tool that files a dispute</td><td class="done">Done</td></tr>
+<tr><td>Approval gate</td><td>One function resumes the agent; web UI and text bridge both call it; second check refuses sending without approval; wording lint and evidence-id check on every draft, including edits</td><td class="done">Done, tested</td></tr>
+<tr><td>Web UI</td><td>Next.js app: start screen, live agent panel with subagent cards, case queue, case detail with ticket image, approve/edit/skip, packet panel (portal link, copy buttons, deadline), Memory strip, Agent files viewer, How it works popover, accessibility pass (axe clean)</td><td class="done">Done</td></tr>
+<tr><td>Text approval</td><td>Strict reply parser (only a bare YES approves), owner-only sender check, WON/LOST outcome by text, phone simulator in the UI</td><td class="done">Simulated, tested</td></tr>
+<tr><td>Offline demo</td><td>Record/replay cache of real model runs for 4 samples on two decision paths; offline audit replays all with network blocked (8 of 8 pass)</td><td class="done">Done</td></tr>
+<tr><td>Tracing</td><td>LangSmith tracing (off by default), verified end to end with a replayed run; local trace.jsonl per case; header badge links to the project</td><td class="done">Verified via replay</td></tr>
+<tr><td>Honest "send" flow</td><td>No platform dispute API exists, so approving prepares a packet; the case shows <b>Ready to file</b>; owner files in the portal and records Won/Lost</td><td class="done">Done</td></tr>
+<tr><td>Hardening</td><td>Upload validation and size limit, privacy tests (raw names never reach the model), 124 backend tests passing</td><td class="done">Done</td></tr>
+<tr><td>Docs</td><td>README, DEMO.md (3-minute script, LangChain talk track, LangSmith walkthrough, Q&amp;A, troubleshooting)</td><td class="done">Done</td></tr>
+<tr><td>Visual polish</td><td>Large animated Reclaim wordmark and drifting glow on the start screen</td><td class="done">Done</td></tr>
+</table>
+
+<h2>3. Remaining</h2>
+<table>
+<tr><th>Item</th><th>Why it matters / note</th></tr>
+<tr><td>Live Photon link</td><td>Needs a Node sidecar (Photon's SDKs are TypeScript) and credentials. Today the text approval is a simulator and the webhook transport is untested live.</td></tr>
+<tr><td>Auto-detect wins from the next payout CSV</td><td>Outcome recording is manual (form or WON/LOST text). Matching credits in a later payout would close the loop; real platform reversal labels are unverified.</td></tr>
+<tr><td>Backup demo recording and screenshots</td><td>Safety net if the live demo fails.</td></tr>
+<tr><td>Live-model LangSmith trace</td><td>Tracing is verified on replayed runs only.</td></tr>
+<tr><td>Mobile layout re-check and real screen-reader test</td><td>Done by automated axe only; mobile not re-checked after the latest UI changes.</td></tr>
+<tr><td>Payout screenshot / PDF ingest, Grubhub</td><td>Out of scope so far; CSV only.</td></tr>
+<tr><td>Verify portal URLs</td><td>The DoorDash and Uber Eats merchant links in the packet panel are not confirmed as the exact login pages.</td></tr>
+<tr><td>Demo-state reset before presenting</td><td>Leftover outcome rows from manual runs (Memory shows 4, not 3) can cause cache misses. Run the reset in DEMO.md and restart the API.</td></tr>
+</table>
+
+<h2>4. Honest limits</h2>
+<ul>
+<li>Replay covers only the recorded decision paths (approve first then skip, or approve all). A new CSV needs a live model and API key.</li>
+<li>Win probabilities are heuristics, not measured platform win rates. The UI says "estimates, not guarantees".</li>
+<li>Deadlines are counted from the payout date; platform rules should be confirmed before relying on them.</li>
+<li>The text approval and phone are simulated; do not describe them as live.</li>
+</ul>
+
+<h2>5. Repository</h2>
+<p>github.com/sumanshah7/ReClaim, branch main, latest commit 906dd55. Run: <code>make api</code> (port 8100) and <code>make web</code> (port 3100). Tests: <code>make test</code>.</p>
+</body></html>
