@@ -43,7 +43,7 @@ def test_prompt_goes_out_and_yes_approves_through_the_same_gate(client):
     st = wait(client, run, "waiting_approval")
     first = st["pending_case"]
     out = [m for m in client.get("/api/photon").json()["messages"] if m["direction"] == "out"]
-    assert out and "Reply YES to send" in out[0]["text"] and first.split(":")[1] in out[0]["text"]
+    assert out and "Reply YES to approve" in out[0]["text"] and first.split(":")[1] in out[0]["text"]
     assert "Approved" in text(client, "YES")
     wait(client, run, "waiting_approval")           # the agent moved on to the next case
     assert client.get(f"/api/runs/{run}/cases/{first}").json()["status"] == "sent"
@@ -102,3 +102,16 @@ def test_shared_secret_enforced(client, monkeypatch):
     assert r.status_code == 401
     r = client.post("/api/photon/inbound", json={"sender": DEMO_OWNER, "text": "hi"}, headers={"X-Reclaim-Secret": "s3cret"})
     assert r.status_code == 200
+
+
+def test_memory_counts_resolved_outcomes_only(client):
+    run = start(client)
+    wait(client, run, "waiting_approval")
+    base = client.get("/api/memory").json()
+    text(client, "YES")                                  # approving creates a pending row; it is not a result yet
+    wait(client, run, "waiting_approval")                # the agent has resumed, filed the packet and moved on
+    after_yes = client.get("/api/memory").json()
+    assert after_yes["outcomes"] == base["outcomes"] and after_yes["pending"] == base["pending"] + 1
+    text(client, "WON 25.00")
+    after_won = client.get("/api/memory").json()
+    assert after_won["outcomes"] == base["outcomes"] + 1 and after_won["pending"] == base["pending"]

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfidenceBadge } from "@/components/confidence-badge";
+import { PacketPanel } from "@/components/packet-panel";
 
 function Ticket({ d }: { d: Detail }) {
   if (!d.ticket) {
@@ -73,7 +74,7 @@ function OutcomeForm({ runId, d, onSaved }: { runId: string; d: Detail; onSaved:
   if (saved) return <p className="text-sm text-muted-foreground">Saved to memory. Similar cases will be scored with this result.</p>;
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">When the platform responds, record the result so Reclaim learns from similar cases.</p>
+      <p className="text-sm text-muted-foreground">Once the platform replies, record the result here (or text WON 28.40 / LOST) so Reclaim learns from similar cases.</p>
       <Textarea value={lesson} onChange={(e) => setLesson(e.target.value)} placeholder="Optional: one factual line about what mattered" rows={2} aria-label="Lesson" />
       <div className="flex gap-2">
         <Button size="sm" disabled={busy} onClick={() => save("won")}>Won</Button>
@@ -166,7 +167,7 @@ function CaseDetailBody({ runId, detail, canDecide, onDecide, onMemoryChanged }:
         {d.status === "skipped" && <p className="mt-4 border-t border-border pt-4 text-sm text-muted-foreground">You skipped this case. Nothing was sent.</p>}
         {d.status === "sent" && (
           <div className="mt-4 space-y-4 border-t border-border pt-4">
-            <p className="flex items-center gap-2 text-sm"><CircleCheck className="size-4 text-money" />Approved. The dispute packet is ready to submit (platforms have no dispute API).</p>
+            <PacketPanel runId={runId} d={d} />
             <OutcomeForm runId={runId} d={d} onSaved={onMemoryChanged} />
           </div>
         )}
@@ -175,13 +176,13 @@ function CaseDetailBody({ runId, detail, canDecide, onDecide, onMemoryChanged }:
         <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center gap-2 rounded-xl bg-popover/95 p-3 backdrop-blur hairline" role="group" aria-label="Your decision">
           <AnimatePresence>{errors.length > 0 && (
             <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
-              <Alert variant="destructive"><AlertDescription>Not sent. {errors.join(" · ")}. Edit the text and try again.</AlertDescription></Alert>
+              <Alert variant="destructive"><AlertDescription>Not approved. {errors.join(" · ")}. Edit the text and try again.</AlertDescription></Alert>
             </motion.div>)}
           </AnimatePresence>
-          <Button disabled={busy} onClick={() => act(editing && changed ? "edit" : "approve")}><Check className="size-4" />{editing && changed ? "Approve edited draft" : "Approve and send"}</Button>
+          <Button disabled={busy} onClick={() => act(editing && changed ? "edit" : "approve")}><Check className="size-4" />{editing && changed ? "Approve edited draft" : "Approve"}</Button>
           <Button variant="outline" disabled={busy} onClick={() => setEditing((v) => !v)}><Pencil className="size-4" />{editing ? "Stop editing" : "Edit"}</Button>
           <Button variant="ghost" disabled={busy} onClick={() => act("skip")}><SkipForward className="size-4" />Skip</Button>
-          <p className="w-full text-xs text-muted-foreground sm:ml-auto sm:w-auto">Review the draft below. Nothing is sent until you approve.</p>
+          <p className="w-full text-xs text-muted-foreground sm:ml-auto sm:w-auto">Approving prepares a packet for you to file. Nothing leaves this app.</p>
         </div>
       )}
     </motion.article>

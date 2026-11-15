@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { useEscape } from "@/hooks/use-escape";
 
 export function MemoryStrip({ refreshKey }: { refreshKey: number }) {
-  const [m, setM] = useState<{ outcomes: number; lessons: string } | null>(null);
+  const [m, setM] = useState<{ outcomes: number; pending?: number; lessons: string } | null>(null);
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setOpen(false), []);
@@ -29,6 +29,7 @@ export function MemoryStrip({ refreshKey }: { refreshKey: number }) {
       {open && (
         <div role="dialog" aria-label="What Reclaim remembers" className="absolute right-0 top-full z-20 mt-2 w-[min(28rem,90vw)] rounded-xl bg-popover p-4 hairline">
           <p className="eyebrow mb-2">Lessons from past disputes · newest first</p>
+          {!!m.pending && <p className="mb-2 text-xs text-muted-foreground">{m.pending} approved {m.pending === 1 ? "dispute is" : "disputes are"} waiting for the platform’s answer. Record won or lost and it becomes a lesson.</p>}
           {lines.length === 0 ? <p className="text-sm text-muted-foreground">Nothing yet. Record the result of a sent dispute and it will show up here.</p>
             : <ul className="scroll-quiet max-h-64 space-y-2 overflow-y-auto text-sm">{lines.map((l, i) => <li key={i} className="text-muted-foreground">{l.slice(2)}</li>)}</ul>}
         </div>

@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CheckCircle2, Circle, CircleDot, GitBranch, Hand, Wrench } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, ChevronRight, Circle, CircleDot, GitBranch, Hand, SkipForward, Wrench } from "lucide-react";
 import type { AgentEvent, RunState } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { HowItWorks } from "@/components/how-it-works";
 
 type Todo = { content: string; state: "pending" | "active" | "done" };
 
@@ -14,7 +16,7 @@ const TOOL_LABEL: Record<string, string> = {
   recall_similar_cases: "Recalled similar past cases", get_case: "Opened the case", read_ticket_image: "Read the order ticket",
   check_ticket_vs_claim: "Compared the claim to the ticket", check_pickup_timestamps: "Checked pickup timestamps",
   check_repeat_claimant: "Checked for repeat claims", lint_dispute: "Checked the wording", submit_dispute: "Submitted the draft for approval",
-  send_dispute: "Sent the approved dispute", record_outcome: "Recorded the outcome",
+  send_dispute: "Prepared the filing packet", record_outcome: "Recorded the outcome",
 };
 
 function deriveTodos(events: AgentEvent[]): Todo[] {
@@ -41,7 +43,65 @@ function deriveTodos(events: AgentEvent[]): Todo[] {
   });
 }
 
-function Line({ e }: { e: AgentEvent }) {
+type Resolved = "approved" | "skipped" | null;
+type Item =
+  | { kind: "event"; e: AgentEvent; resolved: Resolved }
+  | { kind: "group"; id: number; agent: string; caseId: string | null; steps: AgentEvent[]; result: string | null; done: boolean };
+
+const SHOWN = ["replan", "interrupt", "subagent", "tool_call", "done", "error"];
+
+/** Fold each subagent's tool calls into one card, and mark a pause as resolved once the run has moved past it. */
+function buildItems(events: AgentEvent[]): Item[] {
+  const rel = events.filter((e) => SHOWN.includes(e.type));
+  const items: Item[] = [];
+  let open: Extract<Item, { kind: "group" }> | null = null;
+  rel.forEach((e, i) => {
+    const p = e.payload;
+    if (e.type === "subagent" && p.state === "started") {
+      open = { kind: "group", id: e.id, agent: String(p.agent), caseId: String(p.task ?? "").match(CASE_RE)?.[0] ?? null, steps: [], result: null, done: false };
+      items.push(open);
+    } else if (e.type === "subagent") {
+      if (open) { open.result = String(p.result ?? ""); open.done = true; open = null; }
+    } else if (e.type === "tool_call" && open) {
+      open.steps.push(e);
+    } else if (e.type === "interrupt") {
+      const cid = String(p.case_id);
+      const later = rel.slice(i + 1);
+      const approved = later.some((x) => x.type === "tool_call" && x.payload.tool === "send_dispute" && String(x.payload.args?.case_id) === cid);
+      items.push({ kind: "event", e, resolved: later.length === 0 ? null : approved ? "approved" : "skipped" });
+    } else {
+      items.push({ kind: "event", e, resolved: null });
+    }
+  });
+  return items;
+}
+
+const AGENT_LABEL: Record<string, string> = { evidence: "Evidence agent", "dispute-writer": "Dispute-writer agent" };
+
+function Group({ g }: { g: Extract<Item, { kind: "group" }> }) {
+  const [manual, setManual] = useState<boolean | null>(null);
+  const open = manual ?? !g.done;   // open while it works, folded once it has reported back
+  const verdict = g.result?.match(/VERDICT:\s*(\w+)/i)?.[1]?.toLowerCase();
+  const tone = verdict === "weak" ? "text-caution" : verdict ? "text-money" : "text-muted-foreground";
+  return (
+    <div className="rounded-lg bg-muted/40 hairline">
+      <button onClick={() => setManual(!open)} aria-expanded={open} className="flex w-full items-center gap-2 px-3 py-2 text-left">
+        <ChevronRight className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} aria-hidden />
+        <span className="min-w-0 flex-1 text-sm"><span className="font-medium">{AGENT_LABEL[g.agent] ?? g.agent}</span>{g.caseId && <span className="font-mono text-xs text-muted-foreground"> · {g.caseId.split(":")[1]}</span>}</span>
+        <span className={cn("shrink-0 font-mono text-[10px] uppercase tracking-wider", tone)}>{!g.done ? "working…" : verdict ?? "done"}</span>
+      </button>
+      {open && (
+        <div className="space-y-1.5 border-t border-border px-3 py-2.5">
+          {g.steps.length === 0 && <p className="text-xs text-muted-foreground">Starting…</p>}
+          {g.steps.map((s) => <Line key={s.id} e={s} />)}
+          {g.result && <p className="pt-1 text-xs leading-relaxed text-muted-foreground">{g.result.split("\n").filter((l) => !/^VERDICT:/i.test(l)).join(" ").trim().slice(0, 260)}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Line({ e, resolved = null }: { e: AgentEvent; resolved?: Resolved }) {
   const p = e.payload;
   if (e.type === "replan") {
     return (
@@ -53,7 +113,10 @@ function Line({ e }: { e: AgentEvent }) {
     );
   }
   if (e.type === "interrupt") {
-    return <div className="rounded-lg bg-money-dim p-3"><p className="flex items-center gap-2 text-sm font-medium text-money"><Hand className="size-4" />Waiting for you</p><p className="mt-1 text-sm">Review {String(p.case_id).split(":")[1]} and approve, edit or skip.</p></div>;
+    const id = String(p.case_id).split(":")[1];
+    if (resolved === "approved") return <p className="flex items-center gap-2 text-sm"><CheckCircle2 className="size-4 shrink-0 text-money" aria-hidden /><span>You approved <span className="font-mono">{id}</span>. Packet ready to file.</span></p>;
+    if (resolved === "skipped") return <p className="flex items-center gap-2 text-sm text-muted-foreground"><SkipForward className="size-4 shrink-0" aria-hidden /><span>You skipped <span className="font-mono">{id}</span>.</span></p>;
+    return <div className="rounded-lg bg-money-dim p-3"><p className="flex items-center gap-2 text-sm font-medium text-money"><Hand className="size-4" />Waiting for you</p><p className="mt-1 text-sm">Review <span className="font-mono">{id}</span>, then Approve, Edit or Skip under the draft, or reply by text.</p></div>;
   }
   if (e.type === "subagent") {
     return <p className="text-sm"><span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{p.state === "started" ? `${p.agent} agent` : "result"}</span><br />{p.state === "started" ? String(p.task) : String(p.result).split("\n")[0]}</p>;
@@ -68,7 +131,7 @@ function Line({ e }: { e: AgentEvent }) {
 
 export function AgentPanel({ events, state }: { events: AgentEvent[]; state: RunState | null }) {
   const todos = useMemo(() => deriveTodos(events), [events]);
-  const log = useMemo(() => events.filter((e) => ["replan", "interrupt", "subagent", "tool_call", "done", "error"].includes(e.type)), [events]);
+  const log = useMemo(() => buildItems(events), [events]);
   const activity = useRef<HTMLElement>(null);
   // Scroll only the activity list. scrollIntoView would also scroll the whole page out from under the owner.
   useEffect(() => {
@@ -83,7 +146,7 @@ export function AgentPanel({ events, state }: { events: AgentEvent[]; state: Run
   return (
     <aside aria-label="Live agent activity" className="flex min-h-0 flex-col rounded-xl bg-card hairline">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
-        <h2 className="eyebrow">Agent</h2>
+        <div className="flex items-center gap-3"><h2 className="eyebrow">Agent</h2><HowItWorks /></div>
         <span className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className={cn("size-2 rounded-full", status === "running" ? "live-dot bg-money" : status === "waiting_approval" ? "bg-money" : status === "error" ? "bg-danger" : "bg-muted-foreground")} aria-hidden />{label}
         </span>
@@ -107,7 +170,11 @@ export function AgentPanel({ events, state }: { events: AgentEvent[]; state: Run
         <section ref={activity} tabIndex={0} aria-label="Activity" className="scroll-quiet min-h-0 flex-1 overflow-y-auto p-5 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring">
           <h3 className="eyebrow mb-2">Activity</h3>
           <div className="space-y-2.5">
-            {log.map((e) => <motion.div key={e.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}><Line e={e} /></motion.div>)}
+            {log.map((it) => (
+              <motion.div key={it.kind === "group" ? `g${it.id}` : it.e.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
+                {it.kind === "group" ? <Group g={it} /> : <Line e={it.e} resolved={it.resolved} />}
+              </motion.div>
+            ))}
           </div>
         </section>
       </div>

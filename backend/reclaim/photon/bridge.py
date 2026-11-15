@@ -24,7 +24,7 @@ SKIP = {"no", "n", "skip"}
 _EDIT = re.compile(r"^edit\b[:\s]+(.+)$", re.I | re.S)
 _WON = re.compile(r"^won\s+\$?(\d+(?:\.\d{1,2})?)$", re.I)
 
-HELP = ("Reply YES to send this dispute, NO to skip it, or EDIT followed by new wording. "
+HELP = ("Reply YES to approve this dispute, NO to skip it, or EDIT followed by new wording. "
         "After a dispute is sent: WON 46.80 or LOST records what the platform decided.")
 
 
@@ -60,7 +60,7 @@ def format_prompt(case, dispute_body: str) -> str:
     return (f"Reclaim: {d.order_id}, {fmt_cents(d.amount_cents)} deducted ({d.reason.value.replace('_', ' ')}).\n"
             f"Win odds {case.p_win_bp // 100}%, {case.days_left} days left to file.\n\n"
             f"Draft dispute:\n{dispute_body}\n\n"
-            f"Reply YES to send, NO to skip, or EDIT <new text>. Nothing is sent until you reply YES.")
+            f"Reply YES to approve, NO to skip, or EDIT <new text>. Approving prepares a packet for you to file in the platform's portal.")
 
 
 class Transport(Protocol):
@@ -184,8 +184,8 @@ class Bridge:
         if r.kind == "skip":
             return "Skipped. Nothing was sent."
         self.awaiting_outcome.append((run_id, case_id))
-        return "Approved. The dispute packet is being prepared for filing." if r.kind == "approve" else \
-            "Your edit passed the checks and is approved. The dispute packet is being prepared for filing."
+        return "Approved. Your packet is ready to file in the platform's portal." if r.kind == "approve" else \
+            "Your edit passed the checks and is approved. Your packet is ready to file in the platform's portal."
 
     def snapshot(self) -> dict:
         with self._lock:

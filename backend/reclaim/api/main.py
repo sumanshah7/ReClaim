@@ -337,7 +337,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/memory")
     def memory_view():
         lessons = cfg.data / "memory" / "AGENTS.md"
-        return {"outcomes": memory.count(), "lessons": lessons.read_text() if lessons.exists() else ""}
+        return {"outcomes": memory.resolved_count(), "pending": memory.count() - memory.resolved_count(), "lessons": lessons.read_text() if lessons.exists() else ""}
 
     return app
 

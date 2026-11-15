@@ -25,9 +25,9 @@ Decision paths that are recorded: approve the first dispute then skip the rest, 
 
 **5. Case detail (30s).** Open DD-51152 (Chicken Thukpa). Ticket image on the left, with the claimed item flagged as **not on the ticket**. Read one line of the draft: facts and evidence ids, no accusation. "Every edit I make is checked by the same rules, so I can't type an accusation in either."
 
-**6. Owner approval (30s).** Open **Text approval**. The same draft arrived as a message. Tap YES. Case shows SENT and the packet is written. "One gate, two front ends. Only a plain yes sends: 'yes, but change it' does nothing." Say it is a simulated phone.
+**6. Owner approval (30s).** Open **Text approval**. The same draft arrived as a message. Tap YES. The case shows **Ready to file** and a panel appears with the portal link, copy buttons and the filing deadline. Say plainly: "Approving prepares the packet. DoorDash has no API for this, so the owner files it in their portal." "One gate, two front ends. Only a plain yes approves: 'yes, but change it' does nothing." Say it is a simulated phone.
 
-**7. Memory (20s).** Open Memory: three past outcomes with lessons. "Similar cases start from what happened before." Then text `WON 28.40` in the Text approval panel: the strip goes to 4 within a couple of seconds and the new lesson ("won, $28.40 recovered") appears at the top of the list.
+**7. Memory (20s).** Open Memory: three past outcomes with lessons. "Similar cases start from what happened before." Then text `WON 28.40` in the Text approval panel: the strip goes from 3 to 4 within a couple of seconds (it counts won and lost results only, not disputes still awaiting an answer) and the new lesson ("won, $28.40 recovered") appears at the top of the list.
 
 **8. Close (10s).** "Services exist for chains. Reclaim is for independents with no back office. Next: real payout screenshots and the live phone link."
 
@@ -45,6 +45,12 @@ The agent is built with LangChain's Deep Agents. In the app you can point at thr
 1. **Plan and subagents** in the Agent panel: the plan is the Deep Agents planning tool; "evidence" and "dispute-writer" are subagents.
 2. **Agent files** (header button): the files the agent wrote to its file system. Open `notes/DD-51102-evidence.md` (the evidence subagent's note), a case's `draft.md`, and `trace.jsonl`. Say: "It can only write plan and note files. It cannot delete or overwrite anything else."
 3. **Memory** (header button): the persistent memory file the agent reads on every run.
+
+**Say it like this (30 seconds):** "The agent is built on LangChain's Deep Agents. There is one main agent that plans. It hands each case to a specialist subagent: one that gathers evidence, one that writes the dispute. Each specialist works on one case in a clean context, so cases can't contaminate each other. Everything involving money or dates is plain code. The agent stops and waits for me before anything is approved. Click **How it works** in the Agent panel for the picture, and the cards in the Activity list for what each specialist did."
+
+**What the Activity list shows:** each subagent is one card (Evidence agent · UE-9b02, WEAK; Dispute-writer agent · UE-9a31, DONE). Click a card to see its tool calls. "Waiting for you" appears only while a decision is pending; afterward it turns into "You approved UE-9a31".
+
+**What "approved" means:** the app cannot file with DoorDash or Uber Eats for the owner, because neither offers a public dispute API. Approving prepares a packet (the case shows **Ready to file**). The owner then opens the portal link in the case panel, pastes the dispute text (copy buttons are there) and files it before the deadline. When the platform answers, the owner records Won or Lost, or texts `WON 28.40` / `LOST`, and that is what the memory learns from.
 
 ## Showing LangSmith
 

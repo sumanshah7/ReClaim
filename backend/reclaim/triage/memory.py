@@ -62,3 +62,7 @@ class Memory:
 
     def count(self) -> int:
         return int(self.db.execute("SELECT COUNT(*) FROM outcomes").fetchone()[0])
+
+    def resolved_count(self) -> int:
+        """Won or lost only. A dispute waiting for the platform's answer is not yet something to learn from."""
+        return int(self.db.execute("SELECT COUNT(*) FROM outcomes WHERE result != 'pending'").fetchone()[0])

@@ -55,5 +55,5 @@ export const api = {
   phone: () => fetch("/api/photon").then(j<PhoneState>),
   phoneSend: (sender: string, text: string) =>
     fetch("/api/photon/inbound", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sender, text }) }).then(j<{ reply: string | null }>),
-  memory: () => fetch("/api/memory").then(j<{ outcomes: number; lessons: string }>),
+  memory: () => fetch("/api/memory").then(j<{ outcomes: number; pending?: number; lessons: string }>),
 };

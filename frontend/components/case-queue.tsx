@@ -1,7 +1,7 @@
 "use client";
 
 import { LayoutGroup, motion } from "motion/react";
-import { AlertTriangle, CircleCheck, Hourglass, Send, SkipForward } from "lucide-react";
+import { AlertTriangle, CircleCheck, FileCheck, Hourglass, SkipForward } from "lucide-react";
 import type { CaseRow } from "@/lib/api";
 import { deadlineLabel, platformLabel, reasonLabel, usd } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,7 @@ import { ConfidenceBadge } from "@/components/confidence-badge";
 function StatusChip({ c, pending }: { c: CaseRow; pending: boolean }) {
   const base = "inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider";
   if (pending) return <span className={cn(base, "bg-money text-primary-foreground font-semibold")}><Hourglass className="size-3" />Needs you</span>;
-  if (c.status === "sent") return <span className={cn(base, "bg-money-dim text-money")}><Send className="size-3" />Sent</span>;
+  if (c.status === "sent") return <span className={cn(base, "bg-money-dim text-money")}><FileCheck className="size-3" />Ready to file</span>;
   if (c.status === "skipped") return <span className={cn(base, "text-muted-foreground hairline")}><SkipForward className="size-3" />Skipped</span>;
   if (c.status === "awaiting_approval") return <span className={cn(base, "text-foreground hairline")}><CircleCheck className="size-3" />Drafted</span>;
   if (c.recommend_skip) return <span className={cn(base, "text-muted-foreground hairline")}>Skip advised</span>;
