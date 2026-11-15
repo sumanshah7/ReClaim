@@ -144,7 +144,7 @@ function CaseDetailBody({ runId, detail, canDecide, onDecide, onMemoryChanged }:
             {d.recommend_skip && <Alert className="mt-4"><AlertDescription>Reclaim recommends skipping this case: {d.skip_reason}</AlertDescription></Alert>}
           </section>
           <section className="rounded-xl bg-card p-5 hairline">
-            <h3 className="eyebrow">Evidence <span className="text-muted-foreground/70">· only what was actually found</span></h3>
+            <h3 className="eyebrow">Evidence <span className="text-muted-foreground">· only what was actually found</span></h3>
             {d.evidence.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">The agent hasn’t gathered evidence for this case yet.</p>
               : <ul className="mt-1 divide-y divide-border">{d.evidence.map((e) => <EvidenceRow key={e.id} e={e} />)}</ul>}
           </section>

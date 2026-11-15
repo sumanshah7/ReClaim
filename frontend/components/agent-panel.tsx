@@ -83,7 +83,7 @@ export function AgentPanel({ events, state }: { events: AgentEvent[]; state: Run
         </span>
       </div>
       <div className="flex min-h-0 flex-1 flex-col" aria-live="polite">
-        <section className="scroll-quiet max-h-[40%] shrink-0 overflow-y-auto border-b border-border p-5">
+        <section tabIndex={0} aria-label="Plan" className="scroll-quiet max-h-[40%] shrink-0 overflow-y-auto border-b border-border p-5 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring">
           <h3 className="eyebrow mb-2">Plan</h3>
           {todos.length === 0 ? <p className="text-sm text-muted-foreground">Planning…</p> : (
             <ul className="space-y-1.5">
@@ -98,7 +98,7 @@ export function AgentPanel({ events, state }: { events: AgentEvent[]; state: Run
             </ul>
           )}
         </section>
-        <section className="scroll-quiet min-h-0 flex-1 overflow-y-auto p-5">
+        <section tabIndex={0} aria-label="Activity" className="scroll-quiet min-h-0 flex-1 overflow-y-auto p-5 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring">
           <h3 className="eyebrow mb-2">Activity</h3>
           <div className="space-y-2.5">
             {log.map((e) => <motion.div key={e.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}><Line e={e} /></motion.div>)}

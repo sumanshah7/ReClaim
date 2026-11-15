@@ -1,18 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Brain } from "lucide-react";
 import { api } from "@/lib/api";
+import { useEscape } from "@/hooks/use-escape";
 
 export function MemoryStrip({ refreshKey }: { refreshKey: number }) {
   const [m, setM] = useState<{ outcomes: number; lessons: string } | null>(null);
   const [open, setOpen] = useState(false);
+  const btn = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  useEscape(open, close, btn);
   useEffect(() => { api.memory().then(setM).catch(() => setM(null)); }, [refreshKey]);
   if (!m) return null;
   const lines = m.lessons.split("\n").filter((l) => l.startsWith("- "));
   return (
     <div className="relative">
-      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hairline hover:text-foreground">
+      <button ref={btn} onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hairline hover:text-foreground">
         <Brain className="size-3.5" aria-hidden />Memory · <span className="num text-foreground">{m.outcomes}</span> past outcomes
       </button>
       {open && (

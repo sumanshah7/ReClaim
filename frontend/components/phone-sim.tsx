@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageSquare, Send } from "lucide-react";
 import { api, type PhoneState } from "@/lib/api";
+import { useEscape } from "@/hooks/use-escape";
 
 /** The owner's phone, simulated. Texts go through the same approval gate as the buttons (constitution rule 1). */
 export function PhoneSim() {
@@ -11,6 +12,9 @@ export function PhoneSim() {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  useEscape(open, close, btn);
 
   useEffect(() => {
     let live = true;
@@ -30,7 +34,7 @@ export function PhoneSim() {
   const waiting = !!st.pending;
   return (
     <div className="relative">
-      <button onClick={() => setOpen((v) => !v)} aria-expanded={open}
+      <button ref={btn} onClick={() => setOpen((v) => !v)} aria-expanded={open}
         className="relative flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hairline hover:text-foreground">
         <MessageSquare className="size-3.5" aria-hidden />Text approval
         {waiting && <span className="size-1.5 rounded-full bg-money" aria-label="a text is waiting for your reply" />}
@@ -39,7 +43,7 @@ export function PhoneSim() {
         <div role="dialog" aria-label="Simulated owner phone" className="absolute right-0 top-full z-20 mt-2 flex w-[min(24rem,92vw)] flex-col rounded-xl bg-popover p-4 hairline">
           <p className="eyebrow">Owner&apos;s phone · {st.mode === "simulator" ? "simulator" : "live link"}</p>
           <p className="mb-3 mt-1 text-xs text-muted-foreground">Same gate as the buttons. Only a plain YES sends anything.</p>
-          <div className="scroll-quiet flex max-h-72 min-h-24 flex-col gap-2 overflow-y-auto">
+          <div tabIndex={0} role="log" aria-label="Messages" className="scroll-quiet flex max-h-72 min-h-24 flex-col gap-2 overflow-y-auto focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring">
             {st.messages.length === 0 && <p className="text-sm text-muted-foreground">No messages yet. Start a run; the first draft arrives here.</p>}
             {st.messages.map((m, i) => (
               <div key={i} className={m.direction === "out" ? "max-w-[88%] self-start" : "max-w-[88%] self-end"}>

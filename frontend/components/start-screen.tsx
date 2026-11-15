@@ -16,7 +16,7 @@ export function StartScreen({ onStart, error }: { onStart: (b: { fixture?: strin
   const pick = (f?: File | null) => { if (f) onStart({ file: f }); };
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-10 py-10 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:py-20">
+    <main className="mx-auto grid max-w-5xl gap-10 py-10 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:py-20">
       <div>
         <p className="eyebrow">For independent restaurants</p>
         <h1 className="mt-3 text-4xl font-semibold leading-[1.05] tracking-tight md:text-6xl">
@@ -46,7 +46,7 @@ export function StartScreen({ onStart, error }: { onStart: (b: { fixture?: strin
         </div>
 
         <div className="rounded-xl bg-card p-4 hairline">
-          <p className="eyebrow mb-3">Or try a sample <span className="normal-case tracking-normal text-muted-foreground/70">· all synthetic data</span></p>
+          <p className="eyebrow mb-3">Or try a sample <span className="normal-case tracking-normal text-muted-foreground">· all synthetic data</span></p>
           {fixtures === null ? (
             <p className="text-sm text-muted-foreground">Loading samples…</p>
           ) : fixtures.length === 0 ? (
@@ -69,6 +69,6 @@ export function StartScreen({ onStart, error }: { onStart: (b: { fixture?: strin
         </div>
         {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
       </div>
-    </div>
+    </main>
   );
 }

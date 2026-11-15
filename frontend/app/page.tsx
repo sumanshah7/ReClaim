@@ -65,6 +65,7 @@ export default function Page() {
           <>
             <Hero hero={run.hero} loading={run.cases.length === 0} />
             <main className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_340px]">
+              <h1 className="sr-only">Reclaim case queue</h1>
               {run.cases.length === 0 ? (
                 <div className="space-y-2" aria-label="Loading cases">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div>
               ) : (
