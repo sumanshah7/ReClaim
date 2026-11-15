@@ -8,7 +8,7 @@ import unicodedata
 from datetime import timedelta
 from pathlib import Path
 
-from ..schemas import Deduction, Evidence, EvidenceKind, Ticket
+from ..schemas import ClaimReason, Deduction, Evidence, EvidenceKind, Ticket
 
 MAX_HANDOFF_GAP = timedelta(minutes=30)
 MIN_EXTRACTION_CONFIDENCE = 0.6
@@ -79,6 +79,13 @@ def check_ticket_vs_claim(d: Deduction, ticket: Ticket | None) -> Evidence:
         return Evidence(id=f"{d.order_id}:{EvidenceKind.TICKET_LISTS_ITEM.value}", kind=EvidenceKind.TICKET_LISTS_ITEM,
                         summary=(f"The ticket for order {d.order_id} lists a similar item ('{similar}'), so the claimed "
                                  f"'{d.claimed_item}' cannot be matched exactly."),
+                        source_ref=ref, supports=0, strength=0.2)
+    if listed and d.reason == ClaimReason.MISSING_ITEM:
+        # The ticket only proves the item was ordered, not that it was packed, so it does not support the restaurant
+        # against a "missing item" claim. Neutral evidence cannot be cited as support in a dispute.
+        return Evidence(id=f"{d.order_id}:{EvidenceKind.TICKET_LISTS_ITEM.value}", kind=EvidenceKind.TICKET_LISTS_ITEM,
+                        summary=(f"The ticket for order {d.order_id} lists '{d.claimed_item}', which shows the item was "
+                                 "ordered but not that it was packed."),
                         source_ref=ref, supports=0, strength=0.2)
     if listed:
         return Evidence(id=f"{d.order_id}:{EvidenceKind.TICKET_LISTS_ITEM.value}", kind=EvidenceKind.TICKET_LISTS_ITEM,

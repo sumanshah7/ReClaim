@@ -143,7 +143,7 @@ def test_missing_item_claim_ticket_lists_item_is_neutral():
     """A ticket only proves the item was ordered, not that it was packed, so it must not raise a missing-item score."""
     d = ded(reason=ClaimReason.MISSING_ITEM)
     listed = checks.check_ticket_vs_claim(d, ticket(["Green Smoothie"]))
-    assert listed.kind == EvidenceKind.TICKET_LISTS_ITEM and listed.supports == 1
+    assert listed.kind == EvidenceKind.TICKET_LISTS_ITEM and listed.supports == 0     # neutral, not support
     assert _p(d, [listed]) == _p(d, [])
     case = score_case(d, [listed], TODAY, (0, 0), "x")
     assert any("ordered but not that it was packed" in r.text and r.delta == 0 for r in case.reasons)
@@ -255,3 +255,23 @@ def test_a_draft_must_name_the_order(tmp_path):
     errs = s.save_draft(d.id, "We would like this deduction reviewed, thank you very much for your time.",
                         [f"{d.order_id}:ticket_omits_item"])
     assert any("reference order" in e for e in errs)
+
+
+def test_a_missing_item_draft_cannot_cite_the_neutral_ticket_evidence(tmp_path):
+    d = ded(reason=ClaimReason.MISSING_ITEM)
+    listed = checks.check_ticket_vs_claim(d, ticket(["Green Smoothie"]))
+    handoff = checks.check_pickup_timestamps(d, ticket(["Green Smoothie"]))
+    s = session_with(tmp_path, d, [listed, handoff])
+    body = f"We are asking for a review of order {d.order_id}. {handoff.summary} [{handoff.id}] We would appreciate a review."
+    errs = s.save_draft(d.id, body, [listed.id, handoff.id])
+    assert any("cannot be cited as support" in e and listed.id in e for e in errs) and d.id not in s.disputes
+    assert s.save_draft(d.id, body, [handoff.id]) == []                 # citing only the supporting fact is fine
+
+
+def test_wrong_item_claims_still_cite_the_ticket_as_support(tmp_path):
+    d = ded(reason=ClaimReason.WRONG_ITEM)
+    listed = checks.check_ticket_vs_claim(d, ticket(["Green Smoothie"]))
+    assert listed.supports == 1
+    s = session_with(tmp_path, d, [listed])
+    body = f"We are asking for a review of order {d.order_id}. {listed.summary} [{listed.id}] We would appreciate a review."
+    assert s.save_draft(d.id, body, [listed.id]) == []

@@ -81,6 +81,26 @@ def resolved_mode(mode: str | None = None) -> str:
     return mode or os.getenv("RECLAIM_LLM_MODE") or ("auto" if (os.getenv("ANTHROPIC_API_KEY") or "").strip() else "replay")
 
 
+# Tools that must finish before any other tool runs in the same turn, because the others read what they produce
+# (triage_cases needs the payout that load_payout ingests). A model may still ask for both at once; tools of one turn run
+# on parallel threads, so the result would depend on thread timing and replays would be flaky. We keep the solo tool
+# and drop the rest; the model simply asks for them again next turn. Applied identically when recording and replaying.
+SOLO_TOOLS = {"load_payout"}
+
+
+def enforce_tool_order(msg: BaseMessage) -> BaseMessage:
+    calls = getattr(msg, "tool_calls", None) or []
+    if len(calls) < 2:
+        return msg
+    solo = next((c for c in calls if c["name"] in SOLO_TOOLS), None)
+    if solo is None:
+        return msg
+    content = msg.content
+    if isinstance(content, list):
+        content = [b for b in content if not (isinstance(b, dict) and b.get("type") == "tool_use" and b.get("id") != solo["id"])]
+    return msg.model_copy(update={"tool_calls": [solo], "content": content})
+
+
 def _canon(messages: list[BaseMessage]) -> list[dict]:
     out = []
     for m in messages:
@@ -118,7 +138,7 @@ class CachedChatModel(BaseChatModel):
     def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:
         path = Path(self.cache_dir) / f"{self._key(messages, stop)}.json"
         if self.mode != "record" and path.exists():
-            msg = messages_from_dict([json.loads(path.read_text())])[0]
+            msg = enforce_tool_order(messages_from_dict([json.loads(path.read_text())])[0])
             return ChatResult(generations=[ChatGeneration(message=msg)])
         if self.mode == "replay" or self.inner is None:
             dump = Path(self.cache_dir).parent / "cache_misses"
@@ -131,8 +151,8 @@ class CachedChatModel(BaseChatModel):
         out = self.inner.invoke(_tag_system(messages), stop=stop, cache_control=CACHE_CONTROL)
         record_usage(out)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(message_to_dict(out), default=str))
-        return ChatResult(generations=[ChatGeneration(message=out)])
+        path.write_text(json.dumps(message_to_dict(out), default=str))      # the raw model output is what is stored
+        return ChatResult(generations=[ChatGeneration(message=enforce_tool_order(out))])
 
 
 def make_model(cache_dir: Path, mode: str | None = None, model_name: str | None = None):

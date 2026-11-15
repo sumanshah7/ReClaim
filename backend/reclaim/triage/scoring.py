@@ -48,6 +48,9 @@ def score_case(
     weak = False
     for ev in evidence:
         delta, text = DELTAS.get((ev.kind, ev.supports), (0, ""))
+        if ev.kind == EvidenceKind.TICKET_LISTS_ITEM and ev.supports == 0:
+            reasons.append(ConfidenceReason(text=f"{ev.summary} ({ev.source_ref})", delta=0))   # neutral, explained
+            continue
         if ev.kind == EvidenceKind.TICKET_LISTS_ITEM and ev.supports == 1 and d.reason == ClaimReason.MISSING_ITEM:
             # For a "missing item" claim the ticket only proves the item was ordered, not that it was packed, so it
             # must not raise the score. (For a "wrong item" claim it still shows the kitchen made what was ordered.)

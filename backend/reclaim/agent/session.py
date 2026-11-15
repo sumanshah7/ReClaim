@@ -161,6 +161,8 @@ class Session:
         errors += [f"unknown evidence id: {i}" for i in cited if i not in ids]
         if cited and not (set(cited) & supports):
             errors.append("none of the cited evidence supports the restaurant's position")
+        errors += [f"evidence {i} does not support the restaurant's position (it is neutral or against), so it cannot "
+                   "be cited as support; cite only supporting evidence" for i in cited if i in ids and i not in supports]
         if c.deduction.order_id not in body:
             errors.append(f"dispute text must reference order {c.deduction.order_id}")
         return errors

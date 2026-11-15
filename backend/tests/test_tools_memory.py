@@ -27,10 +27,9 @@ def investigate(t, cid=DD):
         call(t, n, case_id=cid)
 
 
-GOOD = ("We are asking for review of order DD-48230 placed on 2026-11-04. The order ticket lists the Green Smoothie "
-        "[DD-48230:ticket_lists_item] and the order was ready at 13:24 and picked up at 13:29 "
-        "[DD-48230:pickup_handoff]. We would appreciate a review and reversal of the $18.75 deduction.")
-IDS = ["DD-48230:ticket_lists_item", "DD-48230:pickup_handoff"]
+GOOD = ("We are asking for review of order DD-48230 placed on 2026-11-04. The order was ready at 13:24 and "
+        "picked up at 13:29 [DD-48230:pickup_handoff]. We would appreciate a review and reversal of the $18.75 deduction.")
+IDS = ["DD-48230:pickup_handoff"]   # a ticket listing the item only proves it was ordered, so it is not cited as support
 
 
 # ---- Rule 1: approval gate ---------------------------------------------------------------
@@ -51,7 +50,7 @@ def test_send_after_approval_writes_packet_and_pending_outcome(env):
     assert call(t, "send_dispute", case_id=DD)["ok"]
     assert s.get(DD).status == CaseStatus.SENT
     packet = (s.case_dir(DD) / "packet.md").read_text()
-    assert "DD-48230:ticket_lists_item" in packet and "source:" in packet
+    assert "DD-48230:pickup_handoff" in packet and "source:" in packet
     assert s.memory.count() == 1 and s.memory.stats("doordash:missing_item") == (0, 0)  # pending is ignored
 
 

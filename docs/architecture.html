@@ -174,7 +174,7 @@ svg text{font-family:-apple-system,Helvetica,Arial,sans-serif}
 <section>
 <h2>7. Quality and verification</h2>
 <ul>
-<li><b>236 backend tests pass</b>, including 106 edge-case tests: malformed CSVs, expired and same-day deadlines, missing and partial tickets, non-Latin product names, concurrent approvals, a model asking to send several disputes in one turn, two processes writing SQLite, a killed server, a code edit during a run, API timeouts and a missing key.</li>
+<li><b>241 backend tests pass</b>, including 108 edge-case tests: malformed CSVs, expired and same-day deadlines, missing and partial tickets, non-Latin product names, concurrent approvals, a model asking to send several disputes in one turn, two processes writing SQLite, a killed server, a code edit during a run, API timeouts and a missing key.</li>
 <li><b>Offline audit: 8 of 8</b> sample paths replay with the network blocked.</li>
 <li><b>Accessibility and mobile:</b> axe-core clean on the main views; no horizontal overflow at 375 px and 414 px widths.</li>
 </ul>
@@ -188,7 +188,7 @@ svg text{font-family:-apple-system,Helvetica,Arial,sans-serif}
 <li><b>Reclaim does not file for you.</b> Neither platform has a public dispute API. It prepares the packet and the owner files it. Recording the result is manual.</li>
 <li><b>Win rates are heuristics</b> (a fixed table, evidence adjustments and a small memory prior), not measured platform win rates.</li>
 <li><b>Replay covers recorded decision paths.</b> A new CSV needs a live model and API key.</li>
-<li><b>Scoring rule, fixed late:</b> a ticket that lists the claimed item no longer raises a missing-item score (it proves the item was ordered, not packed); it still adds points for wrong-item claims, and an omitted item still adds the most. The recorded demo was re-recorded for this.</li>
+<li><b>Scoring rule, fixed late:</b> a ticket that lists the claimed item no longer raises a missing-item score (it proves the item was ordered, not packed); it still adds points for wrong-item claims, and an omitted item still adds the most. That evidence is also marked neutral, and the draft checker only lets a dispute cite evidence that supports the restaurant. The recorded demo was re-recorded for this, and the model wrapper now makes <code>load_payout</code> run alone in its turn so replays cannot depend on thread timing.</li>
 <li><b>Inputs:</b> CSV only; no screenshots, PDFs or Grubhub yet.</li>
 </ul>
 </div>

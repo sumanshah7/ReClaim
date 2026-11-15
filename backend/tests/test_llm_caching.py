@@ -56,3 +56,31 @@ def test_cache_writes_are_counted_from_ephemeral_keys():
     llm.record_usage(AIMessage(content="x", usage_metadata={"input_tokens": 100, "output_tokens": 1, "total_tokens": 101,
         "input_token_details": {"cache_read": 0, "cache_creation": 0, "ephemeral_5m_input_tokens": 90}}))
     assert llm.USAGE["cache_creation"] - start == 90
+
+
+def _parallel(names):
+    calls = [{"name": n, "args": {}, "id": f"id_{i}", "type": "tool_call"} for i, n in enumerate(names)]
+    content = [{"type": "text", "text": "ok"}] + [{"type": "tool_use", "id": c["id"], "name": c["name"], "input": {}} for c in calls]
+    return AIMessage(content=content, tool_calls=calls)
+
+
+def test_load_payout_runs_alone_in_its_turn():
+    msg = llm.enforce_tool_order(_parallel(["load_payout", "triage_cases"]))
+    assert [c["name"] for c in msg.tool_calls] == ["load_payout"]
+    assert [b["name"] for b in msg.content if b.get("type") == "tool_use"] == ["load_payout"]      # blocks stay in sync
+
+
+def test_other_parallel_calls_are_left_alone():
+    for names in (["check_ticket_vs_claim", "check_pickup_timestamps"], ["write_todos", "task"], ["triage_cases"]):
+        msg = _parallel(names)
+        assert llm.enforce_tool_order(msg) is msg
+
+
+def test_a_cached_parallel_load_response_replays_as_a_single_call(tmp_path):
+    import json as _json
+    from langchain_core.messages import message_to_dict
+    m = llm.CachedChatModel(inner=None, cache_dir=tmp_path, mode="replay")
+    msgs = [SystemMessage("s"), HumanMessage("go")]
+    (tmp_path / f"{m._key(msgs, None)}.json").write_text(_json.dumps(message_to_dict(_parallel(["load_payout", "triage_cases"]))))
+    out = m.invoke(msgs)
+    assert [c["name"] for c in out.tool_calls] == ["load_payout"]
