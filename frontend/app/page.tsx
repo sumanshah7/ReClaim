@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { MotionConfig } from "motion/react";
 import { Activity, FlaskConical, RotateCcw } from "lucide-react";
@@ -46,7 +47,7 @@ export default function Page() {
       <div className="mx-auto flex min-h-dvh max-w-[1500px] flex-col gap-6 px-4 py-5 md:px-8">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-baseline gap-3">
-            <span className="wordmark text-3xl font-bold tracking-tighter">Reclaim</span>
+            <span className="inline-flex items-center rounded-lg bg-white px-2.5 py-1.5"><Image src="/reclaim-logo.png" alt="Reclaim" width={1862} height={309} priority unoptimized className="h-8 w-auto sm:h-9" /></span>
             <span className="hidden font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground sm:inline">you approve every dispute</span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
