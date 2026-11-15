@@ -16,9 +16,14 @@ export function StartScreen({ onStart, error }: { onStart: (b: { fixture?: strin
   const pick = (f?: File | null) => { if (f) onStart({ file: f }); };
 
   return (
-    <main className="mx-auto grid max-w-5xl gap-10 py-10 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:py-20">
+    <main className="relative mx-auto grid max-w-5xl gap-10 py-10 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:py-20">
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="glow glow-a -left-20 top-0 size-96" />
+        <div className="glow glow-b -right-10 bottom-0 size-80" />
+      </div>
       <div>
-        <p className="eyebrow">For independent restaurants</p>
+        <p className="wordmark text-7xl font-bold leading-none tracking-tighter md:text-9xl" aria-hidden>Reclaim</p>
+        <p className="eyebrow mt-6">For independent restaurants</p>
         <h1 className="mt-3 text-4xl font-semibold leading-[1.05] tracking-tight md:text-6xl">
           Get back what the platforms <span className="text-money">took</span>.
         </h1>

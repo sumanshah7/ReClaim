@@ -110,3 +110,18 @@
 @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 var(--money-dim); } 100% { box-shadow: 0 0 0 10px transparent; } }
 .live-dot { animation: pulse-ring 1.6s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
+/* Wordmark: slow light sweep across the letters, plus drifting glow blobs behind the hero */
+@keyframes sheen { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+@keyframes drift-a { 0%, 100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(60px,30px,0) scale(1.15); } }
+@keyframes drift-b { 0%, 100% { transform: translate3d(0,0,0) scale(1.1); } 50% { transform: translate3d(-70px,-20px,0) scale(0.95); } }
+.wordmark {
+  background-image: linear-gradient(100deg, var(--foreground) 0%, var(--foreground) 35%, var(--money) 50%, var(--foreground) 65%, var(--foreground) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: sheen 6s linear infinite;
+}
+.glow { position: absolute; border-radius: 9999px; filter: blur(80px); background: var(--money-dim); pointer-events: none; }
+.glow-a { animation: drift-a 14s ease-in-out infinite; }
+.glow-b { animation: drift-b 18s ease-in-out infinite; opacity: .6; }
+@media (prefers-reduced-motion: reduce) { .wordmark, .glow-a, .glow-b { animation: none; } }
