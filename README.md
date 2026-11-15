@@ -57,7 +57,7 @@ Human approval gate; evidence or silence; honest scoring with written reasons; n
 ## Status and known limits
 
 - **Text approval is simulated.** The bridge, parser and outcome-by-text loop are tested; an outbound webhook for a Photon sidecar exists (`PHOTON_BRIDGE_URL`) but has not been run against live Photon.
-- **LangSmith tracing** is wired (set `LANGSMITH_TRACING=true` and a key; it switches itself off without one) but has not been verified against a live account. Tracing uploads run contents, so it is off by default. Every run also writes a local case folder with a `trace.jsonl`.
+- **LangSmith tracing** works: a replayed run reached a LangSmith project with the orchestrator, subagent, tool and middleware spans, tagged `reclaim`, `llm:<mode>` and `replayed-from-cache`/`live-model`. It is off by default (`LANGSMITH_TRACING=false`) because tracing uploads run contents; set it to `true` with a key to turn it on. A replayed run's trace shows recorded model outputs, and says so in its tags. Every run also writes a local case folder with a `trace.jsonl`.
 - **"Send" files a packet; it does not call a platform.** There is no public dispute API, so the packet is what the owner files.
 - **Inputs are CSV and ticket images.** Payout screenshots and PDFs are not supported yet. Grubhub is not supported.
 - **Win probabilities are heuristics** (a fixed table plus evidence adjustments and a small memory prior), not measured platform win rates. The UI says "estimates, not guarantees".
