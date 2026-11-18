@@ -67,3 +67,17 @@ Human approval gate; evidence or silence; honest scoring with written reasons; n
 - **Inputs are CSV and ticket images.** Payout screenshots and PDFs are not supported yet. Grubhub is not supported.
 - **Win probabilities are heuristics** (a fixed table plus evidence adjustments and a small memory prior), not measured platform win rates. The UI says "estimates, not guarantees".
 - Deadlines are counted from the payout date; the platforms' exact rules should be confirmed before relying on them.
+
+## Capstone
+
+**What This Extends**
+
+The system is Re-Claim (this repository), the hackathon project that recovers money DoorDash and Uber Eats deduct after "missing or wrong item" claims. Before the capstone it ran from a terminal and a browser, and left a per-case folder, but no record of a run as a whole: nothing recorded how long a run took, how many model calls it made, what it cost, or why one failed. What is new: a structured run log (one JSON line per agent segment and per rejected input), a documented run path (`RUNNING.md`), a measurement script for cost and latency per run, and a probe that triggers the failure paths on purpose.
+
+**The Shape**
+
+Shape A, deploy and instrument. Out of scope, on purpose: no change to the agent prompts, the scoring rules, or the recorded replay cache (the live demo depends on them); no hosting (Path B, local with a run record); no new agent capability; no rewrite of the interface; no live Photon text channel.
+
+**Running It**
+
+Path B, local with logs. The start command, environment and the run record are in [RUNNING.md](RUNNING.md).
