@@ -1,0 +1,32 @@
+[
+ {
+  "trial": 1,
+  "expected_records": 55,
+  "records": 55,
+  "complete_records": 55,
+  "segments_expected": 50,
+  "segments_found": 50,
+  "rejected_found": 5,
+  "pass": true
+ },
+ {
+  "trial": 2,
+  "expected_records": 55,
+  "records": 55,
+  "complete_records": 55,
+  "segments_expected": 50,
+  "segments_found": 50,
+  "rejected_found": 5,
+  "pass": true
+ },
+ {
+  "trial": 3,
+  "expected_records": 55,
+  "records": 55,
+  "complete_records": 55,
+  "segments_expected": 50,
+  "segments_found": 50,
+  "rejected_found": 5,
+  "pass": true
+ }
+]
