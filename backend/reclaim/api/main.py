@@ -28,7 +28,8 @@ from ..agent.session import Session
 from ..agent.tools import _case_view, build_tools
 from ..ingest.normalize import load_payout as parse_payout
 from ..codewatch import PACKAGE_DIR, CodeWatch
-from ..llm import CacheMiss, MissingApiKey, make_model, require_api_key, resolved_mode
+from .. import runlog
+from ..llm import USAGE, CacheMiss, MissingApiKey, make_model, require_api_key, resolved_mode
 from ..photon.bridge import DEMO_OWNER, Bridge, DecisionRejected, WebhookTransport
 from ..schemas import AgentEventType, CaseStatus
 from ..triage.memory import Memory, signature_of
@@ -49,6 +50,7 @@ class Settings:
     watch_dirs: list[Path] | None = None
     restart_hook: Callable[[], None] | None = None     # default: re-exec this process so it loads the new code
     watch_interval: float = 1.0
+    run_log: Path | None = None        # JSONL run record; default <data>/runs.jsonl (env RECLAIM_RUN_LOG overrides)
 
 
 CODE_CHANGED_MSG = ("The backend code changed while this run was in progress, so the run was stopped instead of "
@@ -121,6 +123,7 @@ class Run:
     lock: threading.Lock = field(default_factory=threading.Lock)
     source: dict = field(default_factory=dict)   # what started it (fixture or upload id), to re-launch after a restart
     cancelled: bool = False
+    mode: str = ""                       # replay | live | auto | scripted, for the run log
     queue: list = field(default_factory=list)       # cases the paused graph is waiting on (a model may ask to send several at once)
     collected: list = field(default_factory=list)   # the owner's decisions so far for that batch, in queue order
 
@@ -156,6 +159,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     cfg.data.mkdir(parents=True, exist_ok=True)
     (cfg.data / "uploads").mkdir(exist_ok=True)
     memory = Memory(cfg.data / "reclaim.db")   # shared across runs: this is the persistent memory
+    run_log = cfg.run_log or Path(os.getenv("RECLAIM_RUN_LOG") or cfg.data / "runs.jsonl")
     runs: dict[str, Run] = {}
     replaced: dict[str, str | None] = {}   # runs stopped by a code change in the previous process -> their fresh run
     dirs = cfg.watch_dirs
@@ -177,7 +181,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(404, "unknown run")
         return runs[run_id]
 
-    def drive(run: Run, payload) -> None:
+    def _drive(run: Run, payload) -> None:
         """Run or resume the agent until it finishes or pauses for the owner. Never raises.
         Streams graph updates so the UI sees the plan, todo changes and subagent hand-offs live."""
         s = run.session
@@ -218,6 +222,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 kind, message = explain_model_error(e)
                 s.emit(AgentEventType.ERROR, {"kind": kind, "message": message})
                 _set_status(run, "error")
+
+    def drive(run: Run, payload) -> None:
+        """_drive plus one structured log record per segment (success, pause, error or stop)."""
+        t0, u0, n0 = time.monotonic(), dict(USAGE), len(run.session.events)
+        _drive(run, payload)
+        resume = getattr(payload, "resume", None)
+        err = next((e.payload for e in reversed(run.session.events[n0:]) if e.type == AgentEventType.ERROR), None)
+        runlog.log_event(
+            run_log, event="segment", run_id=run.id, llm_mode=run.mode,
+            input={"kind": "resume" if resume is not None else "start",
+                   **({"decisions": [d.get("type") for d in resume.get("decisions", [])]} if resume is not None
+                      else {"source": run.source})},
+            output={"status": run.status, "pending_case": run.pending_case,
+                    "cases_triaged": len(run.session.cases), "drafts": len(run.session.disputes)},
+            duration_s=round(time.monotonic() - t0, 3), usage=runlog.usage_delta(u0, dict(USAGE)),
+            error=({"kind": err.get("kind"), "message": err.get("message")} if err else None))
 
     def _set_status(run: Run, status: str) -> bool:
         """Change status unless the run was cancelled meanwhile (a stopped run must stay stopped)."""
@@ -349,6 +369,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def upload(file: UploadFile = File(...)):
         raw = await file.read(MAX_UPLOAD + 1)
         if len(raw) > MAX_UPLOAD:
+            runlog.log_event(run_log, event="rejected", input={"upload_bytes": f">{MAX_UPLOAD}"}, status=413,
+                             error={"kind": "http_413", "message": "file too large"})
             raise HTTPException(413, "file is too large for a payout report (2 MB limit)")
         uid = uuid.uuid4().hex[:12]
         (cfg.data / "uploads" / f"{uid}.csv").write_bytes(raw)
@@ -359,6 +381,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"run_id": launch(req)}
 
     def launch(req: StartRun) -> str:
+        try:
+            return _launch(req)
+        except HTTPException as e:   # a rejected input leaves a record too
+            runlog.log_event(run_log, event="rejected", input=req.model_dump(exclude_none=True), status=e.status_code,
+                             error={"kind": "http_%d" % e.status_code, "message": str(e.detail)[:300]})
+            raise
+
+    def _launch(req: StartRun) -> str:
         if req.upload_id:
             path = cfg.data / "uploads" / f"{Path(req.upload_id).name}.csv"
             path = _matching_sample(path, cfg.fixtures) or path
@@ -382,7 +412,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except ValueError as e:          # unreadable ticket data: say so instead of a bare 500
             raise HTTPException(503, f"Order ticket data is unavailable: {e}")
         try:
-            model = cfg.model_factory() if cfg.model_factory else make_model(cfg.fixtures / "llm_cache")
+            model = cfg.model_factory() if cfg.model_factory else make_model(Path(os.getenv("RECLAIM_CACHE_DIR") or cfg.fixtures / "llm_cache"))
         except MissingApiKey as e:
             raise HTTPException(503, str(e))
         agent = build_agent(session, model, cfg.data / "checkpoints.db")
@@ -390,6 +420,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         run = Run(run_id, session, agent, {"configurable": {"thread_id": run_id}, "recursion_limit": 100,
                                            **tracing.run_config(run_id, mode, "upload" if req.upload_id else "synthetic-sample")})
         run.source = req.model_dump(exclude_none=True)
+        run.mode = mode
         runs[run_id] = run
         start_thread(run, {"messages": [("user", f"Process the payout file at {path}.")]})
         return run_id
