@@ -45,3 +45,14 @@ tried three times with nothing changed in between. Live means every model call g
    *Why:* the cost and token fields are only trustworthy per run if they are attributed per run. The usage counter I
    read from is process-wide, so I expect overlapping runs to be the case where this breaks; a tolerance would hide
    the double counting I am worried about.
+
+## Revisions (original criteria above are unchanged)
+
+**Criterion 5, method only (target unchanged: difference 0).** Original method: 2 live runs overlapping. Revised
+method: 2 overlapping runs using a stand-in model that goes through the real graph, subagents and API, reports usage
+through the same `record_usage`, and counts its own calls independently. *Why:* the API account's usage limit was
+reached during the 10-run measurement, so live calls were impossible; the criterion could not be measured as written.
+
+**Criteria 3 and 4, trials.** Planned 3 trials of 3 live runs each (9 runs). Only 7 live runs completed before the
+same usage limit; they are reported as trial 1 (runs 1 to 3), trial 2 (runs 4 to 6) and trial 3 (run 7). The targets
+are unchanged and the shortfall is stated in the README.
