@@ -42,7 +42,7 @@ Open http://localhost:3100 and pick a sample. No API key is needed: the default 
 
 | Command | What it does |
 |---|---|
-| `make test` | Backend test suite (241 tests, including edge cases for CSVs, races, restarts and API failures) |
+| `make test` | Backend test suite (242 tests, including edge cases for CSVs, races, restarts and API failures) |
 | `backend/.venv/bin/python scripts/audit_offline.py` | Replays every sample, both decision paths, with the network blocked |
 | `make record` / `scripts/record_cache.py` | Re-records the cache with a real model (needs `ANTHROPIC_API_KEY`) |
 | `make reset` | Returns memory to the 3 seeded synthetic outcomes (clears pending cases and extra lessons); restart `make api` after |
@@ -80,7 +80,7 @@ Shape A, deploy and instrument. Out of scope, on purpose: no change to the agent
 
 **Running It**
 
-Path B, local with logs. The start command, environment and the run record are in [RUNNING.md](RUNNING.md).
+Path B, local with logs. The start command, environment and the run record are in [RUNNING.md](RUNNING.md). I tested those instructions from a fresh clone (new virtual environment, `git clone` to another folder) and it failed twice before it worked, which is what that test is for: (1) a fresh checkout has no seeded demo memory, so the first run stopped with a logged `cache_miss`; I added the required `make reset` step; (2) the replay cache key included the repo's absolute path (the first prompt names the payout file's path), so a clone anywhere else could not replay; I made the key path-independent (`backend/reclaim/llm.py`, with a test; keys are unchanged at the recorded path, and the offline audit still passes). After both fixes the clone ran a payout through start, the approval pause and an approved resume, and logged both segments.
 
 **Instrumentation**
 
