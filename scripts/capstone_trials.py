@@ -34,7 +34,7 @@ def make_app(mode: str, log: Path, key: str | None = None, temp_cache: bool = Fa
     from reclaim.env import load_env
     load_env()
     work = Path(tempfile.mkdtemp(prefix="reclaim-trial-"))
-    shutil.copytree(ROOT / "data", work / "data", ignore=shutil.ignore_patterns("uploads", "checkpoints.db*", "runs.jsonl"))
+    shutil.copytree(ROOT / "data", work / "data", ignore=shutil.ignore_patterns("uploads", "checkpoints.db*", "runs.jsonl", "restart_pending.json"))
     os.environ["RECLAIM_LLM_MODE"] = mode
     if temp_cache:
         os.environ["RECLAIM_CACHE_DIR"] = str(work / "temp-cache")

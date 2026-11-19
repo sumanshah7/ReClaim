@@ -54,7 +54,7 @@ def main() -> None:
     if not (os.getenv("ANTHROPIC_API_KEY") or "").strip():
         sys.exit("ANTHROPIC_API_KEY is not set.")
     os.environ["RECLAIM_LLM_MODE"] = "record"                         # load_env must not change the mode
-    shutil.copytree(ROOT / "data", work / "data", ignore=shutil.ignore_patterns("uploads", "checkpoints.db*", "runs.jsonl"))
+    shutil.copytree(ROOT / "data", work / "data", ignore=shutil.ignore_patterns("uploads", "checkpoints.db*", "runs.jsonl", "restart_pending.json"))
 
     from fastapi.testclient import TestClient
     from reclaim.api.main import Settings, create_app

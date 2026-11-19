@@ -30,9 +30,3 @@ def log_event(path: Path | str | None, **fields) -> None:
             f.write(line + "\n")
     except Exception:
         pass
-
-
-def usage_delta(before: dict, after: dict) -> dict:
-    """Token use during one segment. USAGE is process-wide, so overlapping runs would be mixed together;
-    the measurement script runs one at a time, and the field name says what it is."""
-    return {k: after.get(k, 0) - before.get(k, 0) for k in after}

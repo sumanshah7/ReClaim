@@ -29,7 +29,7 @@ from ..agent.tools import _case_view, build_tools
 from ..ingest.normalize import load_payout as parse_payout
 from ..codewatch import PACKAGE_DIR, CodeWatch
 from .. import runlog
-from ..llm import USAGE, CacheMiss, MissingApiKey, make_model, require_api_key, resolved_mode
+from ..llm import RUN_USAGE, CacheMiss, MissingApiKey, make_model, new_usage, require_api_key, resolved_mode
 from ..photon.bridge import DEMO_OWNER, Bridge, DecisionRejected, WebhookTransport
 from ..schemas import AgentEventType, CaseStatus
 from ..triage.memory import Memory, signature_of
@@ -225,8 +225,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     def drive(run: Run, payload) -> None:
         """_drive plus one structured log record per segment (success, pause, error or stop)."""
-        t0, u0, n0 = time.monotonic(), dict(USAGE), len(run.session.events)
-        _drive(run, payload)
+        t0, n0 = time.monotonic(), len(run.session.events)
+        seg_usage = new_usage()               # this segment's own tally: overlapping runs do not see each other's calls
+        token = RUN_USAGE.set(seg_usage)
+        try:
+            _drive(run, payload)
+        finally:
+            RUN_USAGE.reset(token)
         resume = getattr(payload, "resume", None)
         err = next((e.payload for e in reversed(run.session.events[n0:]) if e.type == AgentEventType.ERROR), None)
         runlog.log_event(
@@ -236,7 +241,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                       else {"source": run.source})},
             output={"status": run.status, "pending_case": run.pending_case,
                     "cases_triaged": len(run.session.cases), "drafts": len(run.session.disputes)},
-            duration_s=round(time.monotonic() - t0, 3), usage=runlog.usage_delta(u0, dict(USAGE)),
+            duration_s=round(time.monotonic() - t0, 3), usage=seg_usage,
             error=({"kind": err.get("kind"), "message": err.get("message")} if err else None))
 
     def _set_status(run: Run, status: str) -> bool:

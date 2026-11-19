@@ -10,6 +10,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Literal
 
@@ -29,16 +31,31 @@ CACHE_CONTROL = {"type": "ephemeral"}
 USAGE: dict[str, int] = {"calls": 0, "input": 0, "cache_read": 0, "cache_creation": 0, "output": 0}
 
 
+# Usage for the segment currently running in this context (set by the API for each agent segment). The global USAGE
+# above counts the whole process, so two overlapping runs would each see the other's calls; this one is per run.
+RUN_USAGE: ContextVar[dict | None] = ContextVar("reclaim_run_usage", default=None)
+_USAGE_LOCK = threading.Lock()
+
+
+def new_usage() -> dict[str, int]:
+    return {"calls": 0, "input": 0, "cache_read": 0, "cache_creation": 0, "output": 0}
+
+
 def record_usage(msg: BaseMessage) -> None:
     u = getattr(msg, "usage_metadata", None) or {}
     d = u.get("input_token_details") or {}
-    USAGE["calls"] += 1
-    USAGE["input"] += u.get("input_tokens", 0)   # langchain's input_tokens already includes cached tokens
-    USAGE["cache_read"] += d.get("cache_read", 0) or 0
-    # Writes show up as cache_creation or, with ttl-aware responses, split into the ephemeral_* keys (cache_creation then reads 0).
-    USAGE["cache_creation"] += (d.get("cache_creation") or 0) + (d.get("ephemeral_5m_input_tokens") or 0) \
-        + (d.get("ephemeral_1h_input_tokens") or 0)
-    USAGE["output"] += u.get("output_tokens", 0)
+    one = {"calls": 1, "input": u.get("input_tokens", 0),   # langchain's input_tokens already includes cached tokens
+           "cache_read": d.get("cache_read", 0) or 0,
+           # Writes show up as cache_creation or, with ttl-aware responses, split into the ephemeral_* keys.
+           "cache_creation": (d.get("cache_creation") or 0) + (d.get("ephemeral_5m_input_tokens") or 0)
+           + (d.get("ephemeral_1h_input_tokens") or 0),
+           "output": u.get("output_tokens", 0)}
+    run = RUN_USAGE.get()
+    with _USAGE_LOCK:
+        for k, v in one.items():
+            USAGE[k] += v
+            if run is not None:
+                run[k] += v
 
 
 def _tag_system(messages: list[BaseMessage]) -> list[BaseMessage]:

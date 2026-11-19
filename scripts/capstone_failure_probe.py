@@ -23,7 +23,7 @@ def app(mode: str, key: str | None = None):
     from reclaim.api.main import Settings, create_app
     from fastapi.testclient import TestClient
     work = Path(tempfile.mkdtemp(prefix="reclaim-probe-"))
-    shutil.copytree(ROOT / "data", work / "data", ignore=shutil.ignore_patterns("uploads", "checkpoints.db*", "runs.jsonl"))
+    shutil.copytree(ROOT / "data", work / "data", ignore=shutil.ignore_patterns("uploads", "checkpoints.db*", "runs.jsonl", "restart_pending.json"))
     os.environ["RECLAIM_LLM_MODE"] = mode
     os.environ["RECLAIM_CACHE_DIR"] = str(work / "temp-cache") if mode != "replay" else str(ROOT / "fixtures" / "llm_cache")
     load_env()
