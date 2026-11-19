@@ -84,3 +84,16 @@ def test_a_cached_parallel_load_response_replays_as_a_single_call(tmp_path):
     (tmp_path / f"{m._key(msgs, None)}.json").write_text(_json.dumps(message_to_dict(_parallel(["load_payout", "triage_cases"]))))
     out = m.invoke(msgs)
     assert [c["name"] for c in out.tool_calls] == ["load_payout"]
+
+
+def test_cache_key_does_not_depend_on_where_the_repo_is_checked_out(monkeypatch, tmp_path):
+    """A clone at another path must hit the recorded cache: the first prompt names the payout file's absolute path."""
+    from langchain_core.messages import HumanMessage
+    from reclaim import llm
+    m = llm.CachedChatModel(inner=None, cache_dir=tmp_path, mode="replay")
+    recorded = m._key([HumanMessage(content=f"Process the payout file at {llm.RECORDED_ROOT}/fixtures/doordash_payout.csv.")], None)
+    monkeypatch.setattr(llm, "_REPO_ROOT", "/somewhere/else/clone")
+    elsewhere = m._key([HumanMessage(content="Process the payout file at /somewhere/else/clone/fixtures/doordash_payout.csv.")], None)
+    assert recorded == elsewhere
+    other = m._key([HumanMessage(content="Process the payout file at /somewhere/else/clone/fixtures/chutney.csv.")], None)
+    assert other != recorded

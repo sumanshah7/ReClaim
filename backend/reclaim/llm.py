@@ -25,6 +25,11 @@ DEFAULT_MODEL = "claude-sonnet-5-5"
 # default (2048) as an open-ended ceiling. Override with RECLAIM_MAX_TOKENS.
 DEFAULT_MAX_TOKENS = 1200
 CACHE_CONTROL = {"type": "ephemeral"}
+# The recorded responses were made with the repo at this path, and the first prompt contains the payout file's absolute
+# path. Replacing this checkout's root with the recorded one inside the cache key lets a clone elsewhere replay them.
+# At the recorded location the replacement is a no-op, so existing keys are unchanged.
+RECORDED_ROOT = "/Users/sumansah/Desktop/HackPrinceton"
+_REPO_ROOT = str(Path(__file__).resolve().parents[2])
 
 # Running totals from the API's own usage report, so caching is confirmed from cache_read_input_tokens
 # (langchain exposes it as input_token_details.cache_read) rather than assumed.
@@ -150,6 +155,8 @@ class CachedChatModel(BaseChatModel):
     def _key(self, messages, stop) -> str:
         blob = json.dumps({"m": self.model_name, "sig": self.sig, "stop": stop, "msgs": _canon(messages)},
                           sort_keys=True, default=str)
+        if _REPO_ROOT != RECORDED_ROOT:       # the prompt names the payout file's absolute path: key it as recorded
+            blob = blob.replace(_REPO_ROOT, RECORDED_ROOT)
         return hashlib.sha256(blob.encode()).hexdigest()
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:
