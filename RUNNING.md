@@ -22,7 +22,12 @@ python3.11 -m venv backend/.venv
 backend/.venv/bin/pip install -e "backend[dev]"
 cp .env.example .env              # leave the key empty for offline replay
 (cd frontend && npm install)      # only if you want the web UI
+make reset                        # REQUIRED for offline replay: seeds demo memory (3 synthetic outcomes)
 ```
+
+Why `make reset` is required: the recorded model responses only replay while memory holds exactly the 3 seeded
+outcomes (the lessons file is part of the prompt). On a fresh checkout there is no `data/` folder, and without this step
+the first run stops with a `cache_miss` error (this was found by testing these instructions from a clean clone).
 
 ## Start it (single command for the API)
 
