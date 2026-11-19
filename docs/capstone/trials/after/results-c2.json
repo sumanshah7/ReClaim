@@ -1,0 +1,170 @@
+[
+ {
+  "trial": 1,
+  "rows": [
+   {
+    "failure": "file not found",
+    "http": 404,
+    "run_status": null,
+    "seconds": 0.0,
+    "error_kind_logged": "http_404",
+    "pass": true
+   },
+   {
+    "failure": "no input",
+    "http": 422,
+    "run_status": null,
+    "seconds": 0.0,
+    "error_kind_logged": "http_422",
+    "pass": true
+   },
+   {
+    "failure": "not a payout file",
+    "http": 422,
+    "run_status": null,
+    "seconds": 0.0,
+    "error_kind_logged": "http_422",
+    "pass": true
+   },
+   {
+    "failure": "upload over 2 MB",
+    "http": 413,
+    "run_status": null,
+    "seconds": 0.0,
+    "error_kind_logged": "http_413",
+    "pass": true
+   },
+   {
+    "failure": "unseen report, replay",
+    "http": null,
+    "run_status": "error",
+    "seconds": 0.8,
+    "error_kind_logged": "cache_miss",
+    "pass": true
+   },
+   {
+    "failure": "rejected API key",
+    "http": null,
+    "run_status": "error",
+    "seconds": 3.0,
+    "error_kind_logged": "auth",
+    "pass": true
+   }
+  ],
+  "passed": 6,
+  "of": 6,
+  "pass": true
+ },
+ {
+  "trial": 2,
+  "rows": [
+   {
+    "failure": "file not found",
+    "http": 404,
+    "run_status": null,
+    "seconds": 0.0,
+    "error_kind_logged": "http_404",
+    "pass": true
+   },
+   {
+    "failure": "no input",
+    "http": 422,
+    "run_status": null,
+    "seconds": 0.0,
+    "error_kind_logged": "http_422",
+    "pass": true
+   },
+   {
+    "failure": "not a payout file",
+    "http": 422,
+    "run_status": null,
+    "seconds": 0.0,
+    "error_kind_logged": "http_422",
+    "pass": true
+   },
+   {
+    "failure": "upload over 2 MB",
+    "http": 413,
+    "run_status": null,
+    "seconds": 0.0,
+    "error_kind_logged": "http_413",
+    "pass": true
+   },
+   {
+    "failure": "unseen report, replay",
+    "http": null,
+    "run_status": "error",
+    "seconds": 0.7,
+    "error_kind_logged": "cache_miss",
+    "pass": true
+   },
+   {
+    "failure": "rejected API key",
+    "http": null,
+    "run_status": "error",
+    "seconds": 0.9,
+    "error_kind_logged": "auth",
+    "pass": true
+   }
+  ],
+  "passed": 6,
+  "of": 6,
+  "pass": true
+ },
+ {
+  "trial": 3,
+  "rows": [
+   {
+    "failure": "file not found",
+    "http": 404,
+    "run_status": null,
+    "seconds": 0.0,
+    "error_kind_logged": "http_404",
+    "pass": true
+   },
+   {
+    "failure": "no input",
+    "http": 422,
+    "run_status": null,
+    "seconds": 0.0,
+    "error_kind_logged": "http_422",
+    "pass": true
+   },
+   {
+    "failure": "not a payout file",
+    "http": 422,
+    "run_status": null,
+    "seconds": 0.0,
+    "error_kind_logged": "http_422",
+    "pass": true
+   },
+   {
+    "failure": "upload over 2 MB",
+    "http": 413,
+    "run_status": null,
+    "seconds": 0.0,
+    "error_kind_logged": "http_413",
+    "pass": true
+   },
+   {
+    "failure": "unseen report, replay",
+    "http": null,
+    "run_status": "error",
+    "seconds": 0.7,
+    "error_kind_logged": "cache_miss",
+    "pass": true
+   },
+   {
+    "failure": "rejected API key",
+    "http": null,
+    "run_status": "error",
+    "seconds": 0.7,
+    "error_kind_logged": "auth",
+    "pass": true
+   }
+  ],
+  "passed": 6,
+  "of": 6,
+  "pass": true
+ }
+]
