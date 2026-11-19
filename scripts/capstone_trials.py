@@ -2,7 +2,7 @@
 
   python scripts/capstone_trials.py --label before --criteria 1,2        # free: offline replay
   python scripts/capstone_trials.py --label before --criteria 3,4        # live: 9 runs, real money
-  python scripts/capstone_trials.py --label before --criteria 5          # live: 6 runs, real money
+  python scripts/capstone_trials.py --label before --criteria 5          # free: stand-in model, 2 overlapping runs
 
 Results: docs/capstone/trials/<label>/ (raw logs and results-c<N>.json). Nothing in the criteria is changed between
 trials. Every app gets a throwaway copy of data/, so demo memory and fixtures/llm_cache are never modified.
@@ -19,6 +19,7 @@ import sys
 import tempfile
 import time
 from datetime import date
+from typing import ClassVar  # noqa: F401
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -29,7 +30,7 @@ SEG_FIELDS = ("ts", "event", "run_id", "llm_mode", "input", "output", "duration_
 REJ_FIELDS = ("ts", "event", "input", "status", "error")
 
 
-def make_app(mode: str, log: Path, key: str | None = None, temp_cache: bool = False):
+def make_app(mode: str, log: Path, key: str | None = None, temp_cache: bool = False, model_factory=None):
     from reclaim.env import load_env
     load_env()
     work = Path(tempfile.mkdtemp(prefix="reclaim-trial-"))
@@ -43,7 +44,8 @@ def make_app(mode: str, log: Path, key: str | None = None, temp_cache: bool = Fa
         os.environ["ANTHROPIC_API_KEY"] = key
     from fastapi.testclient import TestClient
     from reclaim.api.main import Settings, create_app
-    cfg = Settings(fixtures=ROOT / "fixtures", data=work / "data", cases=work / "cases", today=date(2026, 11, 14), run_log=log)
+    cfg = Settings(fixtures=ROOT / "fixtures", data=work / "data", cases=work / "cases", today=date(2026, 11, 14), run_log=log,
+                   model_factory=model_factory)
     return TestClient(create_app(cfg))
 
 
@@ -151,23 +153,53 @@ def c34(out: Path, trial: int) -> dict:
 
 
 # ---- criterion 5: concurrent attribution ------------------------------------------------------------------------------
+# The Anthropic API key hit its spend limit, so this is run with a stand-in model instead of 2 live runs (a deviation
+# from criteria.md, documented in the README). The stand-in goes through the real graph, subagents and API, sleeps
+# 20 ms per call so the two runs genuinely overlap, reports token usage through the same llm.record_usage the real
+# model uses, and counts its own calls independently of anything the run log reads.
+import threading as _threading
+
+from reclaim import llm as _llm  # noqa: E402
+from reclaim.devtools.policy_model import PolicyChatModel  # noqa: E402
+from langchain_core.messages import AIMessage  # noqa: E402
+
+
+_COUNT_LOCK = _threading.Lock()
+
+
+class CountingModel(PolicyChatModel):
+    made: ClassVar[int] = 0
+
+    def _generate(self, messages, stop=None, run_manager=None, **kw):
+        time.sleep(0.02)
+        res = super()._generate(messages, stop=stop, run_manager=run_manager, **kw)
+        msg = res.generations[0].message
+        msg.usage_metadata = {"input_tokens": 1000, "output_tokens": 50, "total_tokens": 1050,
+                              "input_token_details": {"cache_read": 900}}
+        _llm.record_usage(msg)
+        with _COUNT_LOCK:
+            CountingModel.made += 1
+        return res
+
+
 def c5(out: Path, trial: int) -> dict:
-    import threading
-    from reclaim import llm
     log = out / f"c5-trial{trial}.jsonl"
     log.write_text("")
-    c = make_app("record", log, temp_cache=True)
-    before = llm.USAGE["calls"]
+    c = make_app("replay", log, model_factory=lambda: CountingModel())
+    CountingModel.made = 0
     rids = [c.post("/api/runs", json={"fixture": "doordash_payout.csv"}).json()["run_id"] for _ in range(2)]
     res = {}
-    ts = [threading.Thread(target=lambda r=r: res.__setitem__(r, drive_to_end(c, r))) for r in rids]
+    ts = [_threading.Thread(target=lambda r=r: res.__setitem__(r, drive_to_end(c, r, 120))) for r in rids]
     [t.start() for t in ts]
     [t.join() for t in ts]
     time.sleep(0.5)
-    actual = llm.USAGE["calls"] - before
-    logged = sum(r["usage"]["calls"] for r in read(log) if r.get("event") == "segment")
+    segs = [r for r in read(log) if r.get("event") == "segment"]
+    actual = CountingModel.made
+    logged = sum(r["usage"]["calls"] for r in segs)
+    per_run = {rid: sum(r["usage"]["calls"] for r in segs if r["run_id"] == rid) for rid in rids}
     return {"trial": trial, "actual_model_calls": actual, "logged_calls_sum": logged, "difference": logged - actual,
-            "statuses": {k: v[0] for k, v in res.items()}, "pass": logged == actual and all(v[0] == "done" for v in res.values())}
+            "logged_per_run": per_run, "statuses": {k: v[0] for k, v in res.items()},
+            "pass": logged == actual and all(v[0] == "done" for v in res.values())}
 
 
 FUNCS = {"1": c1, "2": c2, "3": c34, "4": c34, "5": c5}

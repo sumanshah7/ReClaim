@@ -1,0 +1,47 @@
+[
+ {
+  "trial": 1,
+  "actual_model_calls": 78,
+  "logged_calls_sum": 152,
+  "difference": 74,
+  "logged_per_run": {
+   "46af06421b": 75,
+   "15aef70e6d": 77
+  },
+  "statuses": {
+   "15aef70e6d": "done",
+   "46af06421b": "done"
+  },
+  "pass": false
+ },
+ {
+  "trial": 2,
+  "actual_model_calls": 78,
+  "logged_calls_sum": 149,
+  "difference": 71,
+  "logged_per_run": {
+   "921aadf592": 74,
+   "ca3f844f84": 75
+  },
+  "statuses": {
+   "ca3f844f84": "done",
+   "921aadf592": "done"
+  },
+  "pass": false
+ },
+ {
+  "trial": 3,
+  "actual_model_calls": 78,
+  "logged_calls_sum": 153,
+  "difference": 75,
+  "logged_per_run": {
+   "f18a7e337c": 76,
+   "8466d0d892": 77
+  },
+  "statuses": {
+   "8466d0d892": "done",
+   "f18a7e337c": "done"
+  },
+  "pass": false
+ }
+]
